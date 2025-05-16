@@ -1,0 +1,20 @@
+import express from "express";
+import authRoutes from "./auth.routes";
+import catergoryRoutes from "./category.routes";
+import productRoutes from "./product.routes";
+import orderRoutes from "./order.routes";
+import userRoutes from "./user.routes";
+import cartRouter from "./cart.routes";
+import stockRoutes from "./stock.routes";
+import uploadRoutes from "./upload.routes";
+const router = express.Router();
+router.use("/auth", authRoutes);
+router.use("/categories", catergoryRoutes);
+router.use("/products", productRoutes);
+router.use("/orders", orderRoutes);
+router.use("/users", userRoutes);
+router.use("/cart", cartRouter);
+router.use("/stock-adjustments", stockRoutes);
+router.use("/upload", uploadRoutes);
+// Add more routes as needed
+export default router;
