@@ -15,7 +15,9 @@ const OrderSchema: Schema = new Schema(
           required: true,
           ref: "Product",
         },
+        name: { type: String, required: true },
         quantity: { type: Number, required: true },
+        price: { type: Number, required: true },
       },
     ],
 
@@ -29,10 +31,9 @@ const OrderSchema: Schema = new Schema(
       update_time: { type: String },
       email_address: { type: String },
     },
-    itemsPrice: {
-      type: Number,
-      required: true,
-      default: 0.0,
+    shippingAddress: {
+      address: { type: String, required: true },
+      city: { type: String, required: true },
     },
     totalPrice: {
       type: Number,
@@ -50,7 +51,7 @@ const OrderSchema: Schema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      enum: ["pending", "processing", "cancelled", "completed"],
       default: "pending",
     },
   },

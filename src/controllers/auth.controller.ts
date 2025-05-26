@@ -187,9 +187,6 @@ export const updateDetails = asyncHandler(
       email: req.body.email,
       phone: req.body.phone,
       address: req.body.address,
-      city: req.body.city,
-      district: req.body.district,
-      ward: req.body.ward,
       avatar: req.body.avatar,
     };
 

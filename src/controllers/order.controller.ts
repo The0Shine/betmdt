@@ -1,221 +1,314 @@
 import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
-import Order from "../models/order.model";
+import { OrderService } from "../services/order.service";
 import Product from "../models/product.model";
-import { asyncHandler } from "../middlewares/async.middleware";
-import { ErrorResponse } from "../utils/errorResponse";
-import { jsonOne } from "../utils/general";
+import HttpError from "../utils/httpError";
+import { jsonOne, jsonAll } from "../utils/general";
 
 // @desc    Tạo đơn hàng mới
 // @route   POST /api/orders
 // @access  Private
-export const createOrder = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const {
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      itemsPrice,
-      shippingPrice,
-      totalPrice,
-    } = req.body;
+export const createOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id as string;
+    const { orderItems, shippingAddress, paymentMethod, totalPrice } = req.body;
 
+    // Kiểm tra các trường bắt buộc
     if (!orderItems || orderItems.length === 0) {
-      return next(
-        new ErrorResponse(
-          "Không có sản phẩm nào trong đơn hàng",
-          StatusCodes.BAD_REQUEST
-        )
-      );
+      throw new HttpError({
+        title: "missing_items",
+        detail: "Không có sản phẩm nào trong đơn hàng",
+        code: StatusCodes.BAD_REQUEST,
+      });
     }
 
-    // Kiểm tra tồn kho
+    if (!shippingAddress || !shippingAddress.address || !shippingAddress.city) {
+      throw new HttpError({
+        title: "missing_shipping",
+        detail: "Thông tin địa chỉ giao hàng không đầy đủ",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    if (!paymentMethod) {
+      throw new HttpError({
+        title: "missing_payment",
+        detail: "Phương thức thanh toán là bắt buộc",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    if (!totalPrice || totalPrice <= 0) {
+      throw new HttpError({
+        title: "invalid_total",
+        detail: "Tổng tiền không hợp lệ",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    // Validate và enrich orderItems
+    const enrichedOrderItems = [];
     for (const item of orderItems) {
+      if (!item.product || !item.quantity || item.quantity <= 0) {
+        throw new HttpError({
+          title: "invalid_item",
+          detail: "Thông tin sản phẩm không hợp lệ",
+          code: StatusCodes.BAD_REQUEST,
+        });
+      }
+
       const product = await Product.findById(item.product);
       if (!product) {
-        return next(
-          new ErrorResponse(
-            `Không tìm thấy sản phẩm với id ${item.product}`,
-            StatusCodes.NOT_FOUND
-          )
-        );
+        throw new HttpError({
+          title: "product_not_found",
+          detail: `Không tìm thấy sản phẩm với id ${item.product}`,
+          code: StatusCodes.NOT_FOUND,
+        });
       }
 
-      if (product.stock < item.quantity) {
-        return next(
-          new ErrorResponse(
-            `Không đủ số lượng tồn kho cho sản phẩm ${product.name}. Còn lại: ${product.stock}`,
-            StatusCodes.BAD_REQUEST
-          )
-        );
-      }
+      enrichedOrderItems.push({
+        product: item.product,
+        name: product.name,
+        quantity: item.quantity,
+        price: item.price || product.price,
+      });
     }
 
-    // @ts-ignore
-    const order = await Order.create({
-      orderItems,
-      user: req.user.id,
+    // Tạo đơn hàng qua service
+    const order = await OrderService.createOrder({
+      user: userId,
+      orderItems: enrichedOrderItems,
       shippingAddress,
       paymentMethod,
-      itemsPrice,
-      shippingPrice,
       totalPrice,
     });
 
-    // Cập nhật tồn kho sau khi tạo đơn hàng
-    for (const item of orderItems) {
-      const product = await Product.findById(item.product);
-      if (product) {
-        product.stock -= item.quantity;
-        await product.save();
-      }
-    }
+    // Lấy đơn hàng với đầy đủ thông tin
+    const createdOrder = await OrderService.getOrderById(order._id.toString());
 
-    return jsonOne(res, StatusCodes.CREATED, order);
+    jsonOne(res, StatusCodes.CREATED, createdOrder);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Lấy đơn hàng theo ID
 // @route   GET /api/orders/:id
 // @access  Private
-export const getOrderById = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const order = await Order.findById(req.params.id).populate(
-      "user",
-      "name email"
-    );
-
-    if (!order) {
-      return next(
-        new ErrorResponse(
-          `Không tìm thấy đơn hàng với id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+export const getOrderById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.tokenPayload || !req.tokenPayload._id) {
+      throw new HttpError({
+        title: "unauthorized",
+        detail: "User not authenticated",
+        code: StatusCodes.UNAUTHORIZED,
+      });
     }
 
-    // if (
-    //   (order.user as { _id: string })._id.toString() !== req.user.id &&
-    //   req.user.role.toString() !== "admin"
-    // ) {
-    //   return next(
-    //     new ErrorResponse(
-    //       "Bạn không có quyền xem đơn hàng này",
-    //       StatusCodes.UNAUTHORIZED
-    //     )
-    //   );
-    // }
+    const orderId = req.params.id;
 
-    return jsonOne(res, StatusCodes.OK, order);
+    const order = await OrderService.getOrderById(orderId);
+
+    if (!order) {
+      throw new HttpError({
+        title: "order_not_found",
+        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    jsonOne(res, StatusCodes.OK, order);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Cập nhật đơn hàng đã thanh toán
 // @route   PUT /api/orders/:id/pay
 // @access  Private
-export const updateOrderToPaid = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const order = await Order.findById(req.params.id);
-
-    if (!order) {
-      return next(
-        new ErrorResponse(
-          `Không tìm thấy đơn hàng với id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+export const updateOrderToPaid = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.tokenPayload || !req.tokenPayload._id) {
+      throw new HttpError({
+        title: "unauthorized",
+        detail: "User not authenticated",
+        code: StatusCodes.UNAUTHORIZED,
+      });
     }
 
-    order.isPaid = true;
-    order.paidAt = new Date();
-    order.paymentResult = {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+
+    const paymentResult = {
       id: req.body.id,
       status: req.body.status,
       update_time: req.body.update_time,
       email_address: req.body.email_address,
     };
 
-    const updatedOrder = await order.save();
-    return jsonOne(res, StatusCodes.OK, updatedOrder);
-  }
-);
+    const updatedOrder = await OrderService.updatePayment(
+      orderId,
+      paymentResult,
+      userId
+    );
 
-// @desc    Cập nhật đơn hàng đã giao
-// @route   PUT /api/orders/:id/deliver
+    jsonOne(res, StatusCodes.OK, updatedOrder);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cập nhật đơn hàng hoàn thành
+// @route   PUT /api/orders/:id/complete
 // @access  Private/Admin
-export const updateOrderToDelivered = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const order = await Order.findById(req.params.id);
+export const updateOrderToCompleted = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
 
-    if (!order) {
-      return next(
-        new ErrorResponse(
-          `Không tìm thấy đơn hàng với id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
-    }
+    const updatedOrder = await OrderService.updateOrderStatus(
+      orderId,
+      "completed",
+      userId
+    );
 
-    order.isDelivered = true;
-    order.deliveredAt = new Date();
-    order.status = "delivered";
-
-    const updatedOrder = await order.save();
-    return jsonOne(res, StatusCodes.OK, updatedOrder);
+    jsonOne(res, StatusCodes.OK, updatedOrder);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Lấy đơn hàng của người dùng hiện tại
 // @route   GET /api/orders/myorders
 // @access  Private
-export const getMyOrders = asyncHandler(async (req: Request, res: Response) => {
-  // @ts-ignore
-  const orders = await Order.find({ user: req.user.id });
+export const getMyOrders = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id as string;
 
-  res.status(StatusCodes.OK).json({
-    success: true,
-    count: orders.length,
-    data: orders,
-  });
-});
+    const orders = await OrderService.getUserOrders(userId);
+
+    jsonAll(res, StatusCodes.OK, orders);
+  } catch (error) {
+    next(error);
+  }
+};
 
 // @desc    Lấy tất cả đơn hàng
 // @route   GET /api/orders
 // @access  Private/Admin
-export const getOrders = asyncHandler(async (req: Request, res: Response) => {
-  const orders = await Order.find({}).populate("user", "id name");
+export const getOrders = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { page = 1, limit = 10, status, user } = req.query;
 
-  res.status(StatusCodes.OK).json({
-    success: true,
-    count: orders.length,
-    data: orders,
-  });
-});
+    const filter: any = {};
+    if (status) filter.status = status;
+    if (user) filter.user = user;
+
+    const options = {
+      page: Number(page),
+      limit: Number(limit),
+      sort: { createdAt: -1 },
+    };
+
+    const orders = await OrderService.getOrders(filter, options);
+
+    jsonAll(res, StatusCodes.OK, orders);
+  } catch (error) {
+    next(error);
+  }
+};
 
 // @desc    Cập nhật trạng thái đơn hàng
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
-export const updateOrderStatus = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const order = await Order.findById(req.params.id);
+export const updateOrderStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const { status } = req.body;
+    const userId = req.tokenPayload._id as string;
 
-    if (!order) {
-      return next(
-        new ErrorResponse(
-          `Không tìm thấy đơn hàng với id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+    if (!status) {
+      throw new HttpError({
+        title: "missing_fields",
+        detail: "Trạng thái đơn hàng là bắt buộc",
+        code: StatusCodes.BAD_REQUEST,
+      });
     }
 
-    order.status = req.body.status;
-
-    if (req.body.status === "delivered") {
-      order.isDelivered = true;
-      order.deliveredAt = new Date();
+    // Kiểm tra status hợp lệ
+    const validStatuses = ["pending", "processing", "cancelled", "completed"];
+    if (!validStatuses.includes(status)) {
+      throw new HttpError({
+        title: "invalid_status",
+        detail: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(
+          ", "
+        )}`,
+        code: StatusCodes.BAD_REQUEST,
+      });
     }
 
-    const updatedOrder = await order.save();
-    return jsonOne(res, StatusCodes.OK, updatedOrder);
+    const updatedOrder = await OrderService.updateOrderStatus(
+      orderId,
+      status,
+      userId
+    );
+
+    jsonOne(res, StatusCodes.OK, updatedOrder);
+  } catch (error) {
+    next(error);
   }
-);
+};
+
+// @desc    Hủy đơn hàng
+// @route   PUT /api/orders/:id/cancel
+// @access  Private
+export const cancelOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+
+    const updatedOrder = await OrderService.cancelOrder(orderId);
+
+    jsonOne(res, StatusCodes.OK, updatedOrder);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Legacy function - kept for backward compatibility
+// @desc    Cập nhật đơn hàng đã giao (alias for complete)
+// @route   PUT /api/orders/:id/deliver
+// @access  Private/Admin
+
+export const updateOrderToDelivered = updateOrderToCompleted;

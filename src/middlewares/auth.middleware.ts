@@ -44,18 +44,3 @@ export const auth = async function (
   }
 };
 // Otorgar acceso a roles específicos
-export const authorize = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    // @ts-ignore
-    if (!roles.includes(req.user.role)) {
-      return next(
-        // @ts-ignore
-        new ErrorResponse(
-          `El rol ${req.user.role} no está autorizado para acceder a esta ruta`,
-          403
-        )
-      );
-    }
-    next();
-  };
-};

@@ -30,7 +30,7 @@ const ProductSchema: Schema = new Schema(
       type: String,
       ref: "Category",
     },
-    stock: {
+    quantity: {
       type: Number,
       required: true,
       min: 0,
@@ -99,7 +99,7 @@ const ProductSchema: Schema = new Schema(
 // Middleware para actualizar el estado del producto basado en el stock
 ProductSchema.pre<IProduct>("save", function (next) {
   if (this.isModified("stock")) {
-    this.status = this.stock > 0 ? "in-stock" : "out-of-stock";
+    this.status = this.quantity > 0 ? "in-stock" : "out-of-stock";
   }
   next();
 });

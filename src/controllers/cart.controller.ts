@@ -1,70 +1,94 @@
 import type { Request, Response, NextFunction } from "express";
-import { StatusCodes } from "http-status-codes";
 import Cart from "../models/cart.model";
 import CartItem from "../models/cart-item.model";
 import Product from "../models/product.model";
-import { asyncHandler } from "../middlewares/async.middleware";
-import { ErrorResponse } from "../utils/errorResponse";
+import { StatusCodes } from "http-status-codes";
+import HttpError from "../utils/httpError";
 import { jsonOne } from "../utils/general";
-import { ICartItem } from "../interfaces/cart.interface";
 
-// @desc    Lấy giỏ hàng của người dùng hiện tại
+// Hàm tính tổng giá trị giỏ hàng
+const calculateTotalPrice = async (cartItemIds: string[]): Promise<number> => {
+  const cartItems = await CartItem.find({ _id: { $in: cartItemIds } });
+  return cartItems.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+};
+
+// @desc    Lấy giỏ hàng của người dùng
 // @route   GET /api/cart
 // @access  Private
-export const getCart = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      console.log(req.user);
+export const getCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
 
-      const userId = req.user.id;
+    // Tìm giỏ hàng của người dùng
+    const cart = await Cart.findOne({ user: userId }).populate({
+      path: "items",
+      populate: {
+        path: "product",
+        select: "name price image description",
+      },
+    });
 
-      // Tìm giỏ hàng của người dùng hoặc tạo mới nếu chưa có
-      let cart = await Cart.findOne({ user: userId }).populate({
-        path: "items",
-        populate: {
-          path: "product",
-          select: "name price image description",
-        },
+    if (!cart) {
+      // Nếu không tìm thấy giỏ hàng, tạo giỏ hàng mới
+      const newCart = await Cart.create({
+        user: userId,
+        items: [],
+        totalPrice: 0,
       });
 
-      if (!cart) {
-        cart = await Cart.create({
-          user: userId,
-          items: [],
-          totalPrice: 0,
-        });
-      }
-
-      return jsonOne(res, StatusCodes.OK, cart);
-    } catch (error) {
-      console.log(error);
+      jsonOne(res, StatusCodes.OK, newCart);
+      return;
     }
-    // Lấy user ID từ request (giả sử đã được xác thực qua middleware)
+
+    jsonOne(res, StatusCodes.OK, cart);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Thêm sản phẩm vào giỏ hàng
 // @route   POST /api/cart
 // @access  Private
-export const addToCart = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user.id;
-    const { productId, quantity = 1 } = req.body;
+export const addItemToCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+    const { productId, quantity } = req.body;
+
+    // Kiểm tra các trường bắt buộc
+    if (!productId || !quantity) {
+      throw new HttpError({
+        title: "missing_fields",
+        detail: "Product ID and quantity are required",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
 
     // Kiểm tra sản phẩm có tồn tại không
     const product = await Product.findById(productId);
     if (!product) {
-      return next(
-        new ErrorResponse(
-          `Không tìm thấy sản phẩm với id ${productId}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+      throw new HttpError({
+        title: "product_not_found",
+        detail: `Product not found with id of ${productId}`,
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    // Tìm hoặc tạo giỏ hàng cho người dùng
+    // Tìm giỏ hàng của người dùng
     let cart = await Cart.findOne({ user: userId });
+
     if (!cart) {
+      // Nếu giỏ hàng chưa tồn tại, tạo mới
       cart = await Cart.create({
         user: userId,
         items: [],
@@ -72,38 +96,43 @@ export const addToCart = asyncHandler(
       });
     }
 
-    // Tìm giỏ hàng với các mục đã được populate
-    cart = await Cart.findById(cart._id).populate({
-      path: "items",
-      populate: {
-        path: "product",
-      },
-    });
+    // Tìm xem sản phẩm đã có trong giỏ hàng chưa
+    // Lấy tất cả các CartItem trong giỏ hàng
+    const cartItems = await CartItem.find({
+      _id: { $in: cart.items },
+    }).populate("product");
 
-    // Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
-    const cartItemIndex = cart.items.findIndex(
-      (item: any) => item.product._id.toString() === productId
+    // Tìm CartItem có product trùng với productId
+    const existingItemIndex = cartItems.findIndex(
+      (item) =>
+        item.product &&
+        item.product._id &&
+        item.product._id.toString() === productId
     );
 
-    if (cartItemIndex > -1) {
-      // Sản phẩm đã tồn tại, cập nhật số lượng
-      const cartItem = await CartItem.findById(cart.items[cartItemIndex]);
-      cartItem.quantity += Number(quantity);
+    let cartItem;
+
+    if (existingItemIndex > -1) {
+      // Nếu sản phẩm đã có trong giỏ hàng, cập nhật số lượng
+      cartItem = cartItems[existingItemIndex];
+      cartItem.quantity = quantity;
+      cartItem.price = product.price;
       await cartItem.save();
     } else {
-      // Sản phẩm chưa có trong giỏ hàng, tạo mới
-      const newCartItem = await CartItem.create({
+      // Nếu sản phẩm chưa có trong giỏ hàng, thêm mới
+      cartItem = await CartItem.create({
         product: productId,
         quantity: quantity,
         price: product.price,
       });
 
-      // Thêm vào danh sách items của giỏ hàng
-      cart.items.push(newCartItem._id as string & ICartItem);
+      // Thêm cartItem vào danh sách items của cart
+      cart.items.push(cartItem._id);
     }
 
-    // Tính lại tổng giá trị giỏ hàng
-    await updateCartTotal(cart._id as string);
+    // Cập nhật tổng giá trị giỏ hàng
+    cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
+    await cart.save();
 
     // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
@@ -114,63 +143,63 @@ export const addToCart = asyncHandler(
       },
     });
 
-    return jsonOne(res, StatusCodes.OK, updatedCart);
+    jsonOne(res, StatusCodes.OK, updatedCart);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Cập nhật số lượng sản phẩm trong giỏ hàng
 // @route   PUT /api/cart/:itemId
 // @access  Private
-export const updateCartItem = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user.id;
-    const { itemId } = req.params;
+export const updateCartItemQuantity = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+    const itemId = req.params.itemId;
     const { quantity } = req.body;
 
-    // Kiểm tra số lượng hợp lệ
-    if (quantity <= 0) {
-      return next(
-        new ErrorResponse("Số lượng phải lớn hơn 0", StatusCodes.BAD_REQUEST)
-      );
+    // Kiểm tra số lượng có hợp lệ không
+    if (!quantity || quantity < 1) {
+      throw new HttpError({
+        title: "invalid_quantity",
+        detail: "Quantity must be at least 1",
+        code: StatusCodes.BAD_REQUEST,
+      });
     }
 
     // Tìm giỏ hàng của người dùng
     const cart = await Cart.findOne({ user: userId });
+
     if (!cart) {
-      return next(
-        new ErrorResponse("Không tìm thấy giỏ hàng", StatusCodes.NOT_FOUND)
-      );
+      throw new HttpError({
+        title: "cart_not_found",
+        detail: "Cart not found",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    // Kiểm tra xem mục có thuộc giỏ hàng của người dùng không
-    const itemExists = cart.items.some((item) => item.toString() === itemId);
-    if (!itemExists) {
-      return next(
-        new ErrorResponse(
-          "Mục này không thuộc giỏ hàng của bạn",
-          StatusCodes.FORBIDDEN
-        )
-      );
-    }
-
-    // Cập nhật số lượng
-    const cartItem = await CartItem.findById(itemId);
+    // Cập nhật số lượng của CartItem
+    const cartItem = await CartItem.findById(itemId).populate("product");
     if (!cartItem) {
-      return next(
-        new ErrorResponse(
-          "Không tìm thấy mục trong giỏ hàng",
-          StatusCodes.NOT_FOUND
-        )
-      );
+      throw new HttpError({
+        title: "item_not_found",
+        detail: "Cart item not found",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
     cartItem.quantity = quantity;
     await cartItem.save();
 
     // Cập nhật tổng giá trị giỏ hàng
-    await updateCartTotal(cart._id as string);
+    cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
+    await cart.save();
 
-    // Lấy giỏ hàng đã cập nhật
+    // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
       path: "items",
       populate: {
@@ -179,52 +208,57 @@ export const updateCartItem = asyncHandler(
       },
     });
 
-    return jsonOne(res, StatusCodes.OK, updatedCart);
+    jsonOne(res, StatusCodes.OK, updatedCart);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Xóa sản phẩm khỏi giỏ hàng
 // @route   DELETE /api/cart/:itemId
 // @access  Private
-export const removeCartItem = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user.id;
-    const { itemId } = req.params;
+export const deleteCartItem = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+    const itemId = req.params.itemId;
 
     // Tìm giỏ hàng của người dùng
     const cart = await Cart.findOne({ user: userId });
+
     if (!cart) {
-      return next(
-        new ErrorResponse("Không tìm thấy giỏ hàng", StatusCodes.NOT_FOUND)
-      );
+      throw new HttpError({
+        title: "cart_not_found",
+        detail: "Cart not found",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    // Kiểm tra xem mục có thuộc giỏ hàng của người dùng không
-    const itemExists = cart.items.some((item) => item.toString() === itemId);
-    if (!itemExists) {
-      return next(
-        new ErrorResponse(
-          "Mục này không thuộc giỏ hàng của bạn",
-          StatusCodes.FORBIDDEN
-        )
-      );
+    // Kiểm tra xem item có thuộc giỏ hàng không
+    const itemIndex = cart.items.findIndex((id) => id.toString() === itemId);
+
+    if (itemIndex === -1) {
+      throw new HttpError({
+        title: "item_not_in_cart",
+        detail: "Item not found in cart",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    // Xóa mục khỏi giỏ hàng
-    cart.items = cart.items.filter((item): item is string => {
-      const itemIdString =
-        typeof item === "string" ? item : item._id.toString();
-      return itemIdString !== itemId;
-    });
-    await cart.save();
-
-    // Xóa mục khỏi bảng CartItem
+    // Xóa CartItem
     await CartItem.findByIdAndDelete(itemId);
 
-    // Cập nhật tổng giá trị giỏ hàng
-    await updateCartTotal(cart._id as string);
+    // Xóa tham chiếu đến CartItem trong giỏ hàng
+    cart.items.splice(itemIndex, 1);
 
-    // Lấy giỏ hàng đã cập nhật
+    // Cập nhật tổng giá trị giỏ hàng
+    cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
+    await cart.save();
+
+    // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
       path: "items",
       populate: {
@@ -233,62 +267,44 @@ export const removeCartItem = asyncHandler(
       },
     });
 
-    return jsonOne(res, StatusCodes.OK, updatedCart);
+    jsonOne(res, StatusCodes.OK, updatedCart);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Xóa toàn bộ giỏ hàng
 // @route   DELETE /api/cart
 // @access  Private
-export const clearCart = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user.id;
+export const clearCart = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
 
     // Tìm giỏ hàng của người dùng
     const cart = await Cart.findOne({ user: userId });
+
     if (!cart) {
-      return next(
-        new ErrorResponse("Không tìm thấy giỏ hàng", StatusCodes.NOT_FOUND)
-      );
+      throw new HttpError({
+        title: "cart_not_found",
+        detail: "Cart not found",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    // Xóa tất cả các mục trong giỏ hàng
+    // Xóa tất cả CartItem liên quan đến giỏ hàng
     await CartItem.deleteMany({ _id: { $in: cart.items } });
 
-    // Cập nhật giỏ hàng
+    // Xóa tất cả tham chiếu đến CartItem trong giỏ hàng
     cart.items = [];
     cart.totalPrice = 0;
     await cart.save();
 
-    return jsonOne(res, StatusCodes.OK, cart);
+    jsonOne(res, StatusCodes.OK, { message: "Cart cleared successfully" });
+  } catch (error) {
+    next(error);
   }
-);
-
-// Hàm hỗ trợ để cập nhật tổng giá trị giỏ hàng
-const updateCartTotal = async (cartId: string) => {
-  const cart = await Cart.findById(cartId).populate({
-    path: "items",
-    populate: {
-      path: "product",
-    },
-  });
-
-  if (!cart) {
-    throw new Error("Không tìm thấy giỏ hàng");
-  }
-
-  // Tính tổng giá trị
-  let totalPrice = 0;
-  for (const item of cart.items) {
-    const cartItem = await CartItem.findById(item).populate("product");
-    if (cartItem) {
-      totalPrice += cartItem.quantity * cartItem.price;
-    }
-  }
-
-  // Cập nhật tổng giá trị
-  cart.totalPrice = totalPrice;
-  await cart.save();
-
-  return cart;
 };

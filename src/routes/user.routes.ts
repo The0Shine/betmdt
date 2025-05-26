@@ -7,7 +7,7 @@ import {
   deleteUser,
   refreshController,
 } from "../controllers/user.controller";
-import { auth, authorize } from "../middlewares/auth.middleware";
+import { auth } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 

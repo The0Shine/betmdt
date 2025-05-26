@@ -1,19 +1,20 @@
-import express from "express";
+import { Router } from "express";
 import {
   getCart,
-  addToCart,
-  updateCartItem,
-  removeCartItem,
+  addItemToCart,
+  updateCartItemQuantity,
+  deleteCartItem,
   clearCart,
 } from "../controllers/cart.controller";
+import { auth } from "../middlewares/auth.middleware";
 
-const router = express.Router();
+const router = Router();
 
-// Áp dụng middleware bảo vệ cho tất cả các route
+// Tất cả các routes đều yêu cầu xác thực
+router.use(auth);
 
-// Các route giỏ hàng
-router.route("/").get(getCart).post(addToCart).delete(clearCart);
+router.route("/").get(getCart).post(addItemToCart).delete(clearCart);
 
-router.route("/:itemId").put(updateCartItem).delete(removeCartItem);
+router.route("/:itemId").put(updateCartItemQuantity).delete(deleteCartItem);
 
 export default router;

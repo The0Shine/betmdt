@@ -14,57 +14,114 @@ import {
   signRefreshToken,
 } from "../utils/jwt";
 import HttpError from "../utils/httpError";
+import { isSuperAdmin } from "../middlewares/permission.middleware";
+import Role from "../models/role.model";
 // @desc    Obtener todos los usuarios
 // @route   GET /api/users
 // @access  Private/Admin
-export const getUsers = asyncHandler(async (req: Request, res: Response) => {
-  const pageOptions = createPageOptions(req);
-  const searchCondition = createSearchText(pageOptions.search);
-  let query: any = {
-    ...searchCondition,
-  };
-  const count = await User.countDocuments(query);
-  const users = await User.find(query, {
-    password: false,
-  })
-    .populate("role")
-    .limit(pageOptions.limit)
-    .skip((pageOptions.page - 1) * pageOptions.limit)
-    .sort({ createdAt: -1 });
-  const result = {
-    users,
-  };
-  // Tạo phân trang
-  const meta = {
-    total: count,
-    limit: pageOptions.limit,
-    totalPages: Math.ceil(count / pageOptions.limit),
-    currentPage: pageOptions.page,
-  };
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const filter: any = {};
+    const { page, limit, search } = createPageOptions(req);
 
-  // Gửi response
-  return jsonAll(res, StatusCodes.OK, result.users, meta);
-});
+    if (search) {
+      filter.$or = [
+        { firstName: new RegExp(search, "i") },
+        { lastName: new RegExp(search, "i") },
+        { email: new RegExp(search, "i") },
+      ];
+    }
+
+    if (req.query.role) {
+      filter.role = req.query.role;
+    }
+
+    const skip = (page - 1) * limit;
+
+    let sort: any = { createdAt: -1 };
+    if (req.query.sort) {
+      const [field, order] = (req.query.sort as string).split(",");
+      sort = { [field]: order === "asc" ? 1 : -1 };
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .populate("role", "name permissions")
+        .select("-password")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    // Thêm thông tin canDelete và canEdit
+    const usersWithPermissions = users.map((user) => {
+      const userObj = user.toObject();
+      const role = userObj.role as any;
+
+      return {
+        ...userObj,
+        canDelete: role?.name !== "Super Admin", // Không thể xóa Super Admin
+        canEdit: role?.name !== "Super Admin", // Không thể sửa Super Admin
+      };
+    });
+
+    const meta = {
+      count: users.length,
+      total,
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+
+    jsonAll(res, StatusCodes.OK, usersWithPermissions, meta);
+  } catch (error) {
+    next(error);
+  }
+};
 
 // @desc    Obtener un usuario por ID
 // @route   GET /api/users/:id
 // @access  Private/Admin
-export const getUserById = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const user = await User.findById(req.params.id);
+export const getUserById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id)
+      .populate("role", "name permissions")
+      .select("-password");
 
     if (!user) {
-      return next(
-        new ErrorResponse(
-          `Usuario no encontrado con id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+      throw new HttpError({
+        title: "user_not_found",
+        detail: "Không tìm thấy người dùng",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    return jsonOne(res, StatusCodes.OK, user);
+    const userObj = user.toObject();
+    const role = userObj.role as any;
+
+    const userWithPermissions = {
+      ...userObj,
+      canDelete: role?.name !== "Super Admin",
+      canEdit: role?.name !== "Super Admin",
+    };
+
+    jsonOne(res, StatusCodes.OK, userWithPermissions);
+  } catch (error) {
+    next(error);
   }
-);
+};
 
 // @desc    Crear un usuario
 // @route   POST /api/users
@@ -78,28 +135,96 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 // @desc    Actualizar un usuario
 // @route   PUT /api/users/:id
 // @access  Private/Admin
-export const updateUser = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    let user = await User.findById(req.params.id);
+export const updateUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const { firstName, lastName, email, phone, address, role } = req.body;
 
+    const user = await User.findById(id).populate("role", "name permissions");
     if (!user) {
-      return next(
-        new ErrorResponse(
-          `Usuario no encontrado con id ${req.params.id}`,
-          StatusCodes.NOT_FOUND
-        )
-      );
+      throw new HttpError({
+        title: "user_not_found",
+        detail: "Không tìm thấy người dùng",
+        code: StatusCodes.NOT_FOUND,
+      });
     }
 
-    user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    // Không cho phép sửa Super Admin (trừ khi người sửa cũng là Super Admin)
+    const userRole = user.role as any;
+    if (userRole?.name === "Super Admin") {
+      throw new HttpError({
+        title: "cannot_edit_super_admin",
+        detail: "Không thể chỉnh sửa tài khoản Super Admin",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
 
-    return jsonOne(res, StatusCodes.OK, user!);
+    // Kiểm tra email đã tồn tại (ngoại trừ user hiện tại)
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: id } });
+      if (existingUser) {
+        throw new HttpError({
+          title: "email_exists",
+          detail: "Email đã tồn tại",
+          code: StatusCodes.BAD_REQUEST,
+        });
+      }
+    }
+
+    // Kiểm tra role tồn tại
+    if (role) {
+      const roleExists = await Role.findById(role);
+      if (!roleExists) {
+        throw new HttpError({
+          title: "role_not_found",
+          detail: "Vai trò không tồn tại",
+          code: StatusCodes.BAD_REQUEST,
+        });
+      }
+
+      // Không cho phép gán role Super Admin (trừ khi người gán là Super Admin)
+      if (roleExists.name === "Super Admin") {
+        throw new HttpError({
+          title: "cannot_assign_super_admin",
+          detail: "Chỉ Super Admin mới có quyền này",
+          code: StatusCodes.FORBIDDEN,
+        });
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        firstName: firstName || user.firstName,
+        lastName: lastName || user.lastName,
+        email: email || user.email,
+        phone: phone !== undefined ? phone : user.phone,
+        address: address !== undefined ? address : user.address,
+        role: role || user.role,
+      },
+      { new: true, runValidators: true }
+    )
+      .populate("role", "name permissions")
+      .select("-password");
+
+    const userObj = updatedUser!.toObject();
+    const updatedRole = userObj.role as any;
+
+    const userWithPermissions = {
+      ...userObj,
+      canDelete: updatedRole?.name !== "Super Admin",
+      canEdit: updatedRole?.name !== "Super Admin",
+    };
+
+    jsonOne(res, StatusCodes.OK, userWithPermissions);
+  } catch (error) {
+    next(error);
   }
-);
-
+};
 // @desc    Eliminar un usuario
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
