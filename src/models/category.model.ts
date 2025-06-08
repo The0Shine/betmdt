@@ -1,6 +1,6 @@
-import mongoose, { Schema } from "mongoose"
-import slugify from "slugify"
-import type { ICategory } from "../interfaces/category.interface"
+import mongoose, { Schema } from "mongoose";
+import slugify from "slugify";
+import type { ICategory } from "../interfaces/category.interface";
 
 const CategorySchema: Schema = new Schema(
   {
@@ -29,15 +29,15 @@ const CategorySchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  },
-)
+  }
+);
 
 // Middleware para crear slug antes de guardar
 CategorySchema.pre<ICategory>("save", function (next) {
   if (this.isModified("name")) {
-    this.slug = slugify(this.name, { lower: true })
+    this.slug = slugify(this.name, { lower: true });
   }
-  next()
-})
+  next();
+});
 
-export default mongoose.model<ICategory>("Category", CategorySchema)
+export default mongoose.model<ICategory>("Category", CategorySchema);

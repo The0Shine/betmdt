@@ -12,7 +12,7 @@ import { auth } from "../middlewares/auth.middleware";
 const router = express.Router();
 
 // Todas las rutas requieren autenticación y rol de admin
-router.route("/refresh").get(refreshController);
+router.route("/refresh").post(refreshController);
 
 router.route("/").get(getUsers).post(createUser);
 

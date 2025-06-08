@@ -71,7 +71,6 @@ export const register = async (
     await newUser.save();
 
     jsonOne(res, StatusCodes.CREATED, {
-      code: 201,
       message: "User registered successfully",
     });
   } catch (error) {
@@ -135,17 +134,17 @@ export const login = async (
 // @desc    Cerrar sesión / limpiar cookie
 // @route   GET /api/auth/logout
 // @access  Private
-export const logout = asyncHandler(async (req: Request, res: Response) => {
-  res.cookie("token", "none", {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true,
-  });
+// export const logout = asyncHandler(async (req: Request, res: Response) => {
+//   res.cookie("token", "none", {
+//     expires: new Date(Date.now() + 10 * 1000),
+//     httpOnly: true,
+//   });
 
-  res.status(200).json({
-    success: true,
-    data: {},
-  });
-});
+//   res.status(200).json({
+//     success: true,
+//     data: {},
+//   });
+// });
 
 // @desc    Obtener usuario actual
 // @route   GET /api/auth/me

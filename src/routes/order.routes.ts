@@ -6,12 +6,13 @@ import {
   getOrders,
   updateOrderStatus,
   getOrderById,
+  createOrder,
 } from "../controllers/order.controller";
 import { auth } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-router.route("/").get(auth, getOrders);
+router.route("/").get(auth, getOrders).post(auth, createOrder);
 
 router.route("/myorders").get(auth, getMyOrders);
 

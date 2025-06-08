@@ -82,7 +82,7 @@ export class OrderService {
   }
 
   /**
-   * 🎯 CẬP NHẬT THANH TOÁN
+   * 🎯 CẬP NHẬT THANH TOÁN - CHỈ UPDATE PAYMENT INFO, KHÔNG THAY ĐỔI STATUS
    */
   static async updatePayment(
     orderId: string,
@@ -102,14 +102,15 @@ export class OrderService {
 
       const wasNotPaid = !order.isPaid;
 
+      // CHỈ CẬP NHẬT THÔNG TIN THANH TOÁN, KHÔNG THAY ĐỔI STATUS
       order.isPaid = true;
       order.paidAt = new Date();
-      order.paymentResult = paymentResult;
-
-      // Nếu đang pending, chuyển sang processing
-      if (order.status === "pending") {
-        order.status = "processing";
-      }
+      order.paymentResult = {
+        id: paymentResult.id || "",
+        status: paymentResult.status || "PAID",
+        update_time: paymentResult.update_time || new Date().toISOString(),
+        email_address: paymentResult.email_address || "",
+      };
 
       await order.save();
 
@@ -129,6 +130,9 @@ export class OrderService {
         }
       }
 
+      console.log(
+        `💳 Đã cập nhật thanh toán cho đơn hàng: ${orderId}, Status giữ nguyên: ${order.status}`
+      );
       return order;
     } catch (error) {
       console.error("❌ Lỗi cập nhật thanh toán:", error);

@@ -10,6 +10,7 @@ import uploadRoutes from "./upload.routes";
 import transactionRoutes from "./transaction.routes";
 import roleRoutes from "./role.routes";
 import dashboardRoutes from "./dashboard.routes";
+import paymentRoutes from "./payment.routes";
 const router = express.Router();
 router.use("/auth", authRoutes);
 router.use("/categories", catergoryRoutes);
@@ -22,5 +23,6 @@ router.use("/upload", uploadRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/roles", roleRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/payment", paymentRoutes);
 // Add more routes as needed
 export default router;

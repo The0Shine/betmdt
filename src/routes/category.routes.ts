@@ -5,6 +5,7 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  // getCategoryTree,
 } from "../controllers/category.controller";
 import { auth } from "../middlewares/auth.middleware";
 
@@ -17,5 +18,4 @@ router
   .get(getCategoryById)
   .put(auth, updateCategory)
   .delete(auth, deleteCategory);
-
 export default router;

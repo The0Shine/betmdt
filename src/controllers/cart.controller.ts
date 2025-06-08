@@ -31,7 +31,7 @@ export const getCart = async (
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description",
+        select: "name price image description quantity",
       },
     });
 
@@ -132,14 +132,21 @@ export const addItemToCart = async (
 
     // Cập nhật tổng giá trị giỏ hàng
     cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
-    await cart.save();
+    await Cart.findByIdAndUpdate(
+      cart._id,
+      {
+        items: cart.items,
+        totalPrice: cart.totalPrice,
+      },
+      { new: true }
+    );
 
     // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description",
+        select: "name price image description quantity",
       },
     });
 
@@ -160,6 +167,8 @@ export const updateCartItemQuantity = async (
   try {
     const userId = req.tokenPayload._id;
     const itemId = req.params.itemId;
+    console.log(itemId);
+
     const { quantity } = req.body;
 
     // Kiểm tra số lượng có hợp lệ không
@@ -197,14 +206,20 @@ export const updateCartItemQuantity = async (
 
     // Cập nhật tổng giá trị giỏ hàng
     cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
-    await cart.save();
+    await Cart.findByIdAndUpdate(
+      cart._id,
+      {
+        totalPrice: cart.totalPrice,
+      },
+      { new: true }
+    );
 
     // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description",
+        select: "name price image description quantity",
       },
     });
 
@@ -253,17 +268,22 @@ export const deleteCartItem = async (
 
     // Xóa tham chiếu đến CartItem trong giỏ hàng
     cart.items.splice(itemIndex, 1);
-
-    // Cập nhật tổng giá trị giỏ hàng
     cart.totalPrice = await calculateTotalPrice(cart.items as string[]);
-    await cart.save();
+    await Cart.findByIdAndUpdate(
+      cart._id,
+      {
+        items: cart.items,
+        totalPrice: cart.totalPrice,
+      },
+      { new: true }
+    );
 
     // Lấy giỏ hàng đã cập nhật với đầy đủ thông tin
     const updatedCart = await Cart.findById(cart._id).populate({
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description",
+        select: "name price image description quantity",
       },
     });
 
@@ -301,7 +321,14 @@ export const clearCart = async (
     // Xóa tất cả tham chiếu đến CartItem trong giỏ hàng
     cart.items = [];
     cart.totalPrice = 0;
-    await cart.save();
+    await Cart.findByIdAndUpdate(
+      cart._id,
+      {
+        items: [],
+        totalPrice: 0,
+      },
+      { new: true }
+    );
 
     jsonOne(res, StatusCodes.OK, { message: "Cart cleared successfully" });
   } catch (error) {

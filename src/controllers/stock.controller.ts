@@ -131,8 +131,9 @@ export const createStockVoucher = async (
   next: NextFunction
 ) => {
   try {
-    const { type, reason, items, notes, relatedOrder } = req.body;
+    const { type, reason, items, notes, status, relatedOrder } = req.body;
     const userId = req.tokenPayload?._id;
+    console.log(status);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new HttpError({
@@ -185,6 +186,7 @@ export const createStockVoucher = async (
       items,
       notes,
       relatedOrder,
+      status, // Mặc định là pending
       createdBy: userId,
     });
 

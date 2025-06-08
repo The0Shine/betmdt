@@ -5,6 +5,7 @@ import { asyncHandler } from "../middlewares/async.middleware";
 import { ErrorResponse } from "../utils/errorResponse";
 import { jsonOne } from "../utils/general";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
+import categoryModel from "../models/category.model";
 
 // @desc    Lấy tất cả sản phẩm
 // @route   GET /api/products
@@ -87,7 +88,37 @@ export const getProductById = asyncHandler(
 // @access  Private/Admin
 export const createProduct = asyncHandler(
   async (req: Request, res: Response) => {
-    const product = await Product.create(req.body);
+    const {
+      name,
+      category,
+      unit,
+      price,
+      quantity,
+      status,
+      image,
+      description,
+      barcode,
+      costPrice,
+    } = req.body;
+
+    const categoryExists = await categoryModel.findById(category);
+    if (!categoryExists) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ message: "Invalid category ID" });
+    }
+    const product = await Product.create({
+      name,
+      category: categoryExists._id,
+      unit,
+      price,
+      quantity,
+      status,
+      image,
+      description,
+      barcode,
+      costPrice,
+    });
     return jsonOne(res, StatusCodes.CREATED, product);
   }
 );

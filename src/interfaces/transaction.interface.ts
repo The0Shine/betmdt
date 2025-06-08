@@ -76,12 +76,7 @@ export interface CreateTransactionData {
   category: "order" | "stock";
   amount: number;
   description: string;
-  paymentMethod?:
-    | "cash"
-    | "bank_transfer"
-    | "credit_card"
-    | "e_wallet"
-    | "other";
+  paymentMethod?: string;
   relatedOrder?: string;
   relatedVoucher?: string;
   relatedCustomer?: string;
