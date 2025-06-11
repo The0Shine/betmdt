@@ -131,21 +131,6 @@ export const login = async (
   }
 };
 
-// @desc    Cerrar sesión / limpiar cookie
-// @route   GET /api/auth/logout
-// @access  Private
-// export const logout = asyncHandler(async (req: Request, res: Response) => {
-//   res.cookie("token", "none", {
-//     expires: new Date(Date.now() + 10 * 1000),
-//     httpOnly: true,
-//   });
-
-//   res.status(200).json({
-//     success: true,
-//     data: {},
-//   });
-// });
-
 // @desc    Obtener usuario actual
 // @route   GET /api/auth/me
 // @access  Private
@@ -201,120 +186,43 @@ export const updateDetails = asyncHandler(
     });
   }
 );
+export const changePassword = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req?.tokenPayload?._id;
+    if (!currentPassword || !newPassword) {
+      throw new HttpError({
+        title: "missing_fields",
+        detail: "Current password and new password are required",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
 
-// @desc    Actualizar contraseña
-// @route   PUT /api/auth/updatepassword
-// @access  Private
-// export const updatePassword = asyncHandler(
-//   async (req: Request, res: Response, next: NextFunction) => {
-//     // @ts-ignore
-//     const user = await User.findById(req.user.id).select("+password");
+    // @ts-ignore: req.user sẽ được middleware xác thực gán vào
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new HttpError({
+        title: "user_not_found",
+        detail: "User not found",
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
 
-//     // Verificar contraseña actual
-//     if (!user) {
-//       return next(new ErrorResponse("Usuario no encontrado", 404));
-//     }
-//     const isMatch = await user.matchPassword(req.body.currentPassword);
+    const isMatch = comparePassword(currentPassword, user.password);
+    if (!isMatch) {
+      throw new HttpError({
+        title: "incorrect_password",
+        detail: "Mật khẩu hiện tại không đúng",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
 
-//     if (!isMatch) {
-//       return next(new ErrorResponse("Contraseña actual incorrecta", 401));
-//     }
+    user.password = await hashPassword(newPassword);
+    await user.save();
 
-//     user.password = req.body.newPassword;
-//     await user.save();
-
-//     sendTokenResponse(user, 200, res);
-//   }
-// );
-
-// @desc    Olvidé mi contraseña
-// @route   POST /api/auth/forgotpassword
-// @access  Public
-// export const forgotPassword = asyncHandler(
-//   async (req: Request, res: Response, next: NextFunction) => {
-//     const user = await User.findOne({ email: req.body.email });
-
-//     if (!user) {
-//       return next(new ErrorResponse("No hay usuario con ese email", 404));
-//     }
-
-//     // Obtener token de restablecimiento
-//     const resetToken = user.getResetPasswordToken();
-
-//     await user.save({ validateBeforeSave: false });
-
-//     // Crear URL de restablecimiento
-//     const resetUrl = `${req.protocol}://${req.get(
-//       "host"
-//     )}/api/auth/resetpassword/${resetToken}`;
-
-//     const message = `Está recibiendo este email porque usted (o alguien más) ha solicitado el restablecimiento de una contraseña. Por favor haga una solicitud PUT a: \n\n ${resetUrl}`;
-
-//     try {
-//       await sendEmail({
-//         email: user.email,
-//         subject: "Token de restablecimiento de contraseña",
-//         message,
-//       });
-
-//       res.status(200).json({ success: true, data: "Email enviado" });
-//     } catch (err) {
-//       console.log(err);
-//       user.resetPasswordToken = undefined;
-//       user.resetPasswordExpire = undefined;
-
-//       await user.save({ validateBeforeSave: false });
-
-//       return next(new ErrorResponse("No se pudo enviar el email", 500));
-//     }
-//   }
-// );
-
-// @desc    Restablecer contraseña
-// @route   PUT /api/auth/resetpassword/:resettoken
-// @access  Public
-// export const resetPassword = asyncHandler(
-//   async (req: Request, res: Response, next: NextFunction) => {
-//     // Obtener token hasheado
-//     const resetPasswordToken = crypto
-//       .createHash("sha256")
-//       .update(req.params.resettoken)
-//       .digest("hex");
-
-//     const user = await User.findOne({
-//       resetPasswordToken,
-//       resetPasswordExpire: { $gt: Date.now() },
-//     });
-
-//     if (!user) {
-//       return next(new ErrorResponse("Token inválido", 400));
-//     }
-
-//     // Establecer nueva contraseña
-//     user.password = req.body.password;
-//     user.resetPasswordToken = undefined;
-//     user.resetPasswordExpire = undefined;
-//     await user.save();
-
-//     sendTokenResponse(user, 200, res);
-//   }
-// );
-
-// // Función auxiliar para enviar respuesta con token
-// const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
-//   // Crear token
-//   const token = user.getSignedJwtToken();
-
-//   const options = {
-//     expires: new Date(
-//       Date.now() +
-//         Number.parseInt(env.ACCESS_TOKEN_EXPIRATION) * 24 * 60 * 60 * 1000
-//     ),
-//     httpOnly: true,
-//   };
-
-//   res.status(statusCode).cookie("token", token, options).json({
-//     success: true,
-//     token,
-//   });
-// };
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Đổi mật khẩu thành công",
+    });
+  }
+);

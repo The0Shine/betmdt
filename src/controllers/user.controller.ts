@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { ParamsDictionary } from "express-serve-static-core";
 import { StatusCodes } from "http-status-codes";
-import User from "../models/user.model";
+import User, { IUser } from "../models/user.model";
 import { asyncHandler } from "../middlewares/async.middleware";
 import { ErrorResponse } from "../utils/errorResponse";
 import { jsonOne } from "../utils/general";
@@ -16,6 +16,9 @@ import {
 import HttpError from "../utils/httpError";
 import { isSuperAdmin } from "../middlewares/permission.middleware";
 import Role from "../models/role.model";
+import mongoose, { Types } from "mongoose";
+import { token } from "morgan";
+import { log } from "console";
 // @desc    Obtener todos los usuarios
 // @route   GET /api/users
 // @access  Private/Admin
@@ -142,7 +145,8 @@ export const updateUser = async (
 ) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, phone, address, role } = req.body;
+    const { firstName, lastName, email, phone, address, role, avatar } =
+      req.body;
 
     const user = await User.findById(id).populate("role", "name permissions");
     if (!user) {
@@ -205,6 +209,7 @@ export const updateUser = async (
         phone: phone !== undefined ? phone : user.phone,
         address: address !== undefined ? address : user.address,
         role: role || user.role,
+        avatar: avatar || user.avatar,
       },
       { new: true, runValidators: true }
     )
@@ -287,3 +292,128 @@ export const refreshController = async (
     );
   }
 };
+export const getWishlist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+
+    const user = await User.findById(userId).populate("wishlist");
+    if (!user)
+      throw new HttpError({
+        title: "User",
+        detail: "User not found",
+        code: StatusCodes.NOT_FOUND,
+      });
+    if (!Array.isArray(user.wishlist)) {
+      user.wishlist = [];
+      await user.save();
+    }
+
+    jsonOne(res, StatusCodes.OK, user.wishlist);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /wishlist/:productId - Thêm sản phẩm vào wishlist
+export const addToWishlist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+    const productId = req.params.productId;
+
+    // Kiểm tra productId hợp lệ
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      throw new HttpError({
+        title: "Product",
+        detail: "Invalid product ID",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new HttpError({
+        title: "User",
+        detail: "User not found",
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    // Chuyển productId về ObjectId
+    const productObjectId = new Types.ObjectId(productId);
+
+    // Kiểm tra trùng lặp
+    const alreadyExists = user.wishlist?.some((id) =>
+      id.equals(productObjectId)
+    );
+
+    if (!alreadyExists) {
+      user.wishlist?.push(productObjectId);
+      await user.save();
+    }
+
+    jsonOne(res, StatusCodes.OK, { message: "Added to wishlist" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /wishlist/:productId - Xóa sản phẩm khỏi wishlist
+export const removeFromWishlist = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.tokenPayload._id;
+    const productId = req.params.productId;
+
+    const user = await User.findById(userId);
+    if (!user)
+      throw new HttpError({
+        title: "User",
+        detail: "User not found",
+        code: StatusCodes.NOT_FOUND,
+      });
+
+    user.wishlist = user.wishlist.filter((id) => id.toString() !== productId);
+    await user.save();
+
+    jsonOne(res, StatusCodes.OK, { message: "Removed from wishlist" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /wishlist - Xóa toàn bộ wishlist
+// export const clearWishlist = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ) => {
+//   try {
+//     const userId = req.user._id;
+
+//     const user = await User.findById(userId);
+//     if (!user)
+//       throw new HttpError({
+//         title: "User",
+//         detail: "User not found",
+//         code: StatusCodes.NOT_FOUND,
+//       });
+
+//     user.wishlist = [];
+//     await user.save();
+
+//     jsonOne(res, StatusCodes.OK, { message: "Wishlist cleared" });
+//   } catch (error) {
+//     next(error);
+//   }
+// };

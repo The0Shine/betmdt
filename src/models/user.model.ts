@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 export interface IUser {
   _id?: string;
@@ -9,7 +9,8 @@ export interface IUser {
   avatar?: string;
   phone?: string;
   address?: string;
-  role?: Schema.Types.ObjectId;
+  role?: Types.ObjectId;
+  wishlist?: Types.ObjectId[];
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   createdAt?: Date;
@@ -37,6 +38,13 @@ const UserSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: "Role",
     },
+    wishlist: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Product",
+        default: [],
+      },
+    ],
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },
