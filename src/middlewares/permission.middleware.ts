@@ -30,8 +30,6 @@ export const loadUser = async (
   next: NextFunction
 ) => {
   try {
-    console.log("Loading user from token:", req.tokenPayload);
-
     if (!req.tokenPayload) {
       throw new HttpError({
         title: "unauthorized",
@@ -43,7 +41,6 @@ export const loadUser = async (
     const user = await User.findById(req.tokenPayload._id)
       .populate("role", "name permissions")
       .select("-password");
-    console.log("Found user:", user);
     if (!user) {
       throw new HttpError({
         title: "user_not_found",
@@ -54,7 +51,6 @@ export const loadUser = async (
 
     // Cast user với populated role
     req.populatedUser = user as unknown as IUserWithPopulatedRole;
-    console.log("Loaded user:", req.populatedUser);
 
     next();
   } catch (error) {
@@ -66,8 +62,6 @@ export const loadUser = async (
 export const requirePermission = (permission: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log("Checking permission:", req.populatedUser);
-
       if (!req.populatedUser) {
         throw new HttpError({
           title: "Bad Request",

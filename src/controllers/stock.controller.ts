@@ -362,7 +362,7 @@ export const approveStockVoucher = async (
         }
       }
     } else if (voucher.type === "import") {
-      console.log("📦 Phê duyệt phiếu nhập kho - không cần kiểm tra tồn kho");
+      console.log("📦 Phê duyệt phiếu nhập kho");
     }
 
     // Cập nhật tồn kho và tạo lịch sử

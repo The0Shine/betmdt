@@ -9,10 +9,10 @@ export const vnpayConfig = {
     "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction",
   vnp_ReturnUrl:
     process.env.VNP_RETURN_URL ||
-    "https://b67b-14-232-68-100.ngrok-free.app/api/payment/vnpay-return",
+    "https://b963-42-1-77-93.ngrok-free.app/api/payment/vnpay-return",
   vnp_IpnUrl:
     process.env.VNP_IPN_URL ||
-    "https://b67b-14-232-68-100.ngrok-free.app/api/payment/vnpay-ipn",
+    "https://b963-42-1-77-93.ngrok-free.app/api/payment/vnpay-ipn",
   vnp_Version: "2.1.0",
   vnp_Command: "pay",
   vnp_CurrCode: "VND",

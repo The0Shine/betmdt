@@ -58,6 +58,54 @@ export class StockVoucherService {
   }
 
   /**
+   * 🎯 TẠO PHIẾU NHẬP KHO TỰ ĐỘNG TỪ HOÀN TIỀN
+   */
+  static async createImportVoucherFromRefund(
+    orderId: Types.ObjectId,
+    orderItems: Array<{
+      product: Types.ObjectId;
+      productName: string;
+      quantity: number;
+      unit: string;
+      costPrice: number;
+    }>,
+    createdBy: Types.ObjectId,
+    refundReason: string
+  ): Promise<IStockVoucher> {
+    try {
+      const voucherItems: IStockItem[] = orderItems.map((item) => ({
+        product: item.product,
+        productName: item.productName,
+        quantity: item.quantity,
+        unit: item.unit,
+        costPrice: item.costPrice,
+        note: `Nhập kho hoàn trả từ đơn hàng #${orderId.toString().slice(-8)}`,
+      }));
+
+      const voucher = new Stock({
+        type: "import",
+        status: "pending",
+        reason: `Nhập kho hoàn trả từ đơn hàng #${orderId
+          .toString()
+          .slice(-8)} - ${refundReason}`,
+        items: voucherItems,
+        createdBy,
+        relatedOrder: orderId,
+        notes: `Phiếu nhập kho được tạo tự động khi hoàn tiền đơn hàng. Lý do hoàn tiền: ${refundReason}`,
+      });
+
+      await voucher.save();
+      console.log(
+        `📋 Đã tạo phiếu nhập kho hoàn trả: ${voucher.voucherNumber}`
+      );
+      return voucher;
+    } catch (error) {
+      console.error("❌ Lỗi tạo phiếu nhập kho hoàn trả:", error);
+      throw error;
+    }
+  }
+
+  /**
    * 🎯 PHÊ DUYỆT PHIẾU KHO VÀ TẠO GIAO DỊCH TỰ ĐỘNG
    */
   static async approveVoucher(
@@ -110,12 +158,14 @@ export class StockVoucherService {
         // Tạo lịch sử
         await StockHistory.create({
           product: item.product,
+          productName: item.productName,
           type: voucher.type,
           quantityBefore,
           quantityChange,
           quantityAfter,
           reason: voucher.reason,
           relatedVoucher: voucher._id,
+          voucherNumber: voucher.voucherNumber,
           relatedOrder: voucher.relatedOrder,
           createdBy: approvedBy,
           notes: item.note,

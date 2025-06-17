@@ -102,7 +102,7 @@ const ProductSchema: Schema = new Schema(
 
 // Middleware para actualizar el estado del producto basado en el stock
 ProductSchema.pre<IProduct>("save", function (next) {
-  if (this.isModified("stock")) {
+  if (this.isModified("quantity")) {
     this.status = this.quantity > 0 ? "in-stock" : "out-of-stock";
   }
   next();

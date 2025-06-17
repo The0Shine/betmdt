@@ -14,11 +14,11 @@ import {
   signRefreshToken,
 } from "../utils/jwt";
 import HttpError from "../utils/httpError";
-import { isSuperAdmin } from "../middlewares/permission.middleware";
 import Role from "../models/role.model";
 import mongoose, { Types } from "mongoose";
 import { token } from "morgan";
 import { log } from "console";
+import { hashPassword } from "../utils/crypto";
 // @desc    Obtener todos los usuarios
 // @route   GET /api/users
 // @access  Private/Admin
@@ -130,7 +130,22 @@ export const getUserById = async (
 // @route   POST /api/users
 // @access  Private/Admin
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const user = await User.create(req.body);
+  const { password, ...rest } = req.body;
+
+  if (!password || password.length < 6) {
+    throw new HttpError({
+      title: "invalid_password",
+      detail: "Mật khẩu phải có ít nhất 6 ký tự",
+      code: StatusCodes.BAD_REQUEST,
+    });
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const user = await User.create({
+    ...rest,
+    password: hashedPassword,
+  });
 
   return jsonOne(res, StatusCodes.CREATED, user);
 });
@@ -417,3 +432,45 @@ export const removeFromWishlist = async (
 //     next(error);
 //   }
 // };
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    const userId = req.tokenPayload._id;
+    // Kiểm tra mật khẩu mới và xác nhận mật khẩu
+
+    const user = await User.findById(id);
+    if (!user) {
+      throw new HttpError({
+        title: "user_not_found",
+        detail: "Không tìm thấy người dùng",
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+    const userreq = await User.findById(userId);
+    const userreqRole = await Role.findById(userreq.role);
+    // Kiểm tra quyền: Chỉ Super Admin mới có thể reset mật khẩu của Super Admin khác
+    const userRole = await Role.findById(user.role);
+    if (
+      userRole?.name === "Super Admin" &&
+      userreqRole?.name !== "Super Admin"
+    ) {
+      throw new HttpError({
+        title: "permission_denied",
+        detail: "Bạn không có quyền đặt lại mật khẩu cho người dùng này",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+    user.password = await hashPassword(newPassword);
+
+    await user.save();
+    jsonOne(res, StatusCodes.OK, { message: "Đặt lại mật khẩu thành công" });
+    // Mã hóa mật khẩu mới
+  } catch (error) {
+    next(error);
+  }
+};

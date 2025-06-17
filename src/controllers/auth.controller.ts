@@ -95,7 +95,7 @@ export const login = async (
     if (!user) {
       throw new HttpError({
         title: "invalid_username_or_password",
-        detail: "Access Forbidden!",
+        detail: "Tài khoản hoặc mật khẩu không đúng",
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -106,7 +106,7 @@ export const login = async (
     if (!isMatch) {
       throw new HttpError({
         title: "invalid_username_or_password",
-        detail: "Access Forbidden!",
+        detail: "Tài khoản hoặc mật khẩu không đúng",
         code: StatusCodes.NOT_FOUND,
       });
     }

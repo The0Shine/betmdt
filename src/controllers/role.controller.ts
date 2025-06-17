@@ -42,8 +42,8 @@ export const getRoles = async (
         return {
           ...role.toObject(),
           userCount,
-          canDelete: role.name !== "Super Admin", // Super Admin không thể xóa
-          canEdit: role.name !== "Super Admin", // Super Admin không thể sửa
+          canDelete: role.name !== "Super Admin" && role.name !== "user", // Super Admin và user không thể xóa
+          canEdit: role.name !== "Super Admin" && role.name !== "user", // Super Admin không thể sửa
         };
       })
     );
@@ -85,8 +85,8 @@ export const getRoleById = async (
     const roleWithUserCount = {
       ...role.toObject(),
       userCount,
-      canDelete: role.name !== "Super Admin",
-      canEdit: role.name !== "Super Admin",
+      canDelete: role.name !== "Super Admin" && role.name !== "user",
+      canEdit: role.name !== "Super Admin" && role.name !== "user",
     };
 
     jsonOne(res, StatusCodes.OK, roleWithUserCount);
@@ -116,6 +116,15 @@ export const createRole = async (
       throw new HttpError({
         title: "forbidden_role_name",
         detail: "Không thể tạo vai trò Super Admin",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
+    // Không cho phép tạo role user (mặc định)
+    if (name.toLowerCase() === "user") {
+      throw new HttpError({
+        title: "forbidden_role_name",
+        detail: "Không thể tạo vai trò user (đã tồn tại mặc định)",
         code: StatusCodes.FORBIDDEN,
       });
     }
@@ -187,11 +196,29 @@ export const updateRole = async (
       });
     }
 
+    // Không cho phép sửa role user (mặc định)
+    if (role.name === "user") {
+      throw new HttpError({
+        title: "cannot_edit_default_role",
+        detail: "Không thể chỉnh sửa vai trò mặc định (user)",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
     // Không cho phép đổi tên thành Super Admin
     if (name === "Super Admin") {
       throw new HttpError({
         title: "forbidden_role_name",
         detail: "Không thể đổi tên thành Super Admin",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
+    // Không cho phép đổi tên thành user
+    if (name && name.toLowerCase() === "user") {
+      throw new HttpError({
+        title: "forbidden_role_name",
+        detail: "Không thể đổi tên thành user (đã tồn tại mặc định)",
         code: StatusCodes.FORBIDDEN,
       });
     }
@@ -267,6 +294,15 @@ export const deleteRole = async (
       });
     }
 
+    // Không cho phép xóa role user (mặc định)
+    if (role.name === "user") {
+      throw new HttpError({
+        title: "cannot_delete_default_role",
+        detail: "Không thể xóa vai trò mặc định (user)",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
     // Kiểm tra xem có user nào đang sử dụng role này không
     const usersWithRole = await User.countDocuments({ role: id });
     if (usersWithRole > 0) {
@@ -308,12 +344,13 @@ export const getPermissions = async (
       // Orders
       "orders.view_all",
       "orders.update_payment",
-      "orders.update_delivery",
+      // "orders.update_delivery",
       "orders.update_status",
 
       // Stock/Inventory
+      "stock.view",
       "stock.create",
-      "stock.edit",
+      // "stock.edit",
       "stock.delete",
       "stock.approve",
       "stock.reject",
@@ -321,7 +358,7 @@ export const getPermissions = async (
 
       // Transactions
       "transactions.view",
-      "transactions.stats",
+      // "transactions.stats",
 
       // Users
       "users.view",
@@ -336,7 +373,7 @@ export const getPermissions = async (
       "roles.delete",
 
       // Admin
-      "admin.all",
+      // "admin.all",
     ];
 
     // Lọc bỏ super.admin permission khỏi danh sách
@@ -380,10 +417,10 @@ export const getPermissions = async (
         name: "Quản lý quyền",
         permissions: availablePermissions.filter((p) => p.startsWith("roles.")),
       },
-      admin: {
-        name: "Quản trị hệ thống",
-        permissions: availablePermissions.filter((p) => p.startsWith("admin.")),
-      },
+      // admin: {
+      //   name: "Quản trị hệ thống",
+      //   permissions: availablePermissions.filter((p) => p.startsWith("admin.")),
+      // },
     };
 
     const permissionsData = {

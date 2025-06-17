@@ -15,9 +15,10 @@ import {
 const router = express.Router();
 
 // Public routes
-router.route("/").get(getProducts);
-router.route("/:id").get(getProductById);
 
+router
+  .route("/admin")
+  .get(auth, loadUser, requirePermission("stock.view"), getProducts);
 // Protected routes
 router.post(
   "/",
@@ -40,5 +41,6 @@ router.delete(
   requirePermission("products.delete"),
   deleteProduct
 );
-
+router.route("/").get(getProducts);
+router.route("/:id").get(getProductById);
 export default router;

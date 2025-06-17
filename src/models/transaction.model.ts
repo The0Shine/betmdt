@@ -29,7 +29,7 @@ const TransactionSchema: Schema = new Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["cash", "bank_transfer", "credit_card", "e_wallet", "other"],
+      enum: ["cash", "bank_transfer", "vnpay", "cod", "other"],
       default: "cash",
     },
     relatedOrder: {

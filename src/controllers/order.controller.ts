@@ -4,6 +4,7 @@ import { OrderService } from "../services/order.service";
 import Product from "../models/product.model";
 import HttpError from "../utils/httpError";
 import { jsonOne, jsonAll } from "../utils/general";
+import Order from "../models/order.model";
 
 // @desc    Tạo đơn hàng mới
 // @route   POST /api/orders
@@ -222,7 +223,7 @@ export const getOrders = async (
   next: NextFunction
 ) => {
   try {
-    const { page = 1, limit = 10, status, user } = req.query;
+    const { page = 1, status, user } = req.query;
 
     const filter: any = {};
     if (status) filter.status = status;
@@ -230,7 +231,6 @@ export const getOrders = async (
 
     const options = {
       page: Number(page),
-      limit: Number(limit),
       sort: { createdAt: -1 },
     };
 
@@ -264,7 +264,13 @@ export const updateOrderStatus = async (
     }
 
     // Kiểm tra status hợp lệ
-    const validStatuses = ["pending", "processing", "cancelled", "completed"];
+    const validStatuses = [
+      "pending",
+      "processing",
+      "cancelled",
+      "completed",
+      "refunded",
+    ];
     if (!validStatuses.includes(status)) {
       throw new HttpError({
         title: "invalid_status",
@@ -282,6 +288,141 @@ export const updateOrderStatus = async (
     );
 
     jsonOne(res, StatusCodes.OK, updatedOrder);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Thêm hai endpoint mới sau updateOrderStatus
+
+// @desc    Yêu cầu hoàn tiền đơn hàng
+// @route   POST /api/orders/:id/request-refund
+// @access  Private
+export const requestRefund = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+    const { refundReason } = req.body;
+
+    if (!refundReason) {
+      throw new HttpError({
+        title: "missing_refund_reason",
+        detail: "Lý do hoàn tiền là bắt buộc",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw new HttpError({
+        title: "order_not_found",
+        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    // Kiểm tra đơn hàng thuộc về người dùng hiện tại
+    if (order.user.toString() !== userId) {
+      throw new HttpError({
+        title: "unauthorized",
+        detail: "Bạn không có quyền yêu cầu hoàn tiền đơn hàng này",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    if (order.status === "cancelled") {
+      throw new HttpError({
+        title: "invalid_order_status",
+        detail: "Không thể yêu cầu hoàn tiền đơn hàng đã hủy",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    if (order.status === "refund_requested" || order.status === "refunded") {
+      throw new HttpError({
+        title: "invalid_order_status",
+        detail: "Đơn hàng đã có yêu cầu hoàn tiền hoặc đã được hoàn tiền",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    // Cập nhật trạng thái đơn hàng và thông tin hoàn tiền
+    order.status = "refund_requested";
+    order.refundInfo = {
+      refundReason,
+      refundDate: undefined,
+      refundTransactionId: undefined,
+      notes: `Yêu cầu hoàn tiền bởi khách hàng vào ${new Date().toISOString()}`,
+    };
+
+    await order.save();
+
+    jsonOne(res, StatusCodes.OK, {
+      success: true,
+      message: "Yêu cầu hoàn tiền đã được gửi",
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Duyệt yêu cầu hoàn tiền
+// @route   PUT /api/orders/:id/approve-refund
+// @access  Private/Admin
+export const approveRefund = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+    const { notes, createImportVoucher = true } = req.body;
+
+    const order = await Order.findById(orderId).populate("orderItems.product");
+    if (!order) {
+      throw new HttpError({
+        title: "order_not_found",
+        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    if (order.status !== "refund_requested") {
+      throw new HttpError({
+        title: "invalid_order_status",
+        detail: "Chỉ có thể duyệt đơn hàng có trạng thái yêu cầu hoàn tiền",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    if (!order.isPaid) {
+      throw new HttpError({
+        title: "order_not_paid",
+        detail: "Không thể hoàn tiền đơn hàng chưa thanh toán",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    // Thực hiện hoàn tiền
+    const refundedOrder = await OrderService.refundOrder(orderId, {
+      refundReason: order.refundInfo?.refundReason || "Hoàn tiền theo yêu cầu",
+      notes: notes || "Yêu cầu hoàn tiền được duyệt bởi admin",
+      createImportVoucher,
+    });
+
+    jsonOne(res, StatusCodes.OK, {
+      success: true,
+      message: "Đã duyệt yêu cầu hoàn tiền",
+      order: refundedOrder,
+    });
   } catch (error) {
     next(error);
   }
@@ -306,9 +447,88 @@ export const cancelOrder = async (
   }
 };
 
+// @desc    Hoàn tiền đơn hàng
+// @route   POST /api/orders/:id/refund
+// @access  Private/Admin
+export const refundOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+    const { refundReason, notes, createImportVoucher = true } = req.body;
+
+    // Kiểm tra các trường bắt buộc
+
+    if (!refundReason) {
+      throw new HttpError({
+        title: "missing_refund_reason",
+        detail: "Lý do hoàn tiền là bắt buộc",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const refundedOrder = await OrderService.refundOrder(orderId, {
+      refundReason,
+      notes,
+      createImportVoucher,
+    });
+
+    jsonOne(res, StatusCodes.OK, refundedOrder);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Legacy function - kept for backward compatibility
 // @desc    Cập nhật đơn hàng đã giao (alias for complete)
 // @route   PUT /api/orders/:id/deliver
 // @access  Private/Admin
+export const rejectRefund = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+    const { notes } = req.body;
 
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw new HttpError({
+        title: "order_not_found",
+        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    if (order.status !== "refund_requested") {
+      throw new HttpError({
+        title: "invalid_order_status",
+        detail: "Chỉ có thể từ chối đơn hàng có trạng thái yêu cầu hoàn tiền",
+        code: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    // Cập nhật trạng thái về "processing" hoặc trạng thái trước đó tùy vào logic hệ thống
+    order.status = "completed"; // Hoặc "processing" nếu cần
+    order.refundInfo = {
+      ...order.refundInfo,
+    };
+
+    await order.save();
+
+    jsonOne(res, StatusCodes.OK, {
+      success: true,
+      message: "Đã từ chối yêu cầu hoàn tiền",
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 export const updateOrderToDelivered = updateOrderToCompleted;

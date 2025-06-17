@@ -53,7 +53,7 @@ export class OrderService {
    */
   static async updateOrderStatus(
     orderId: string,
-    status: "pending" | "processing" | "cancelled" | "completed",
+    status: "pending" | "processing" | "cancelled" | "completed" | "refunded",
     updatedBy: string
   ): Promise<IOrder> {
     try {
@@ -141,6 +141,100 @@ export class OrderService {
   }
 
   /**
+   * 🎯 HOÀN TIỀN ĐƠN HÀNG
+   */
+  static async refundOrder(
+    orderId: string,
+    refundData: {
+      refundReason: string;
+      notes?: string;
+      createImportVoucher?: boolean;
+    }
+  ): Promise<IOrder> {
+    try {
+      const order = await Order.findById(orderId).populate(
+        "orderItems.product"
+      );
+      if (!order) {
+        throw new Error("Không tìm thấy đơn hàng");
+      }
+
+      // Kiểm tra điều kiện hoàn tiền
+      if (order.status === "refunded") {
+        throw new Error("Đơn hàng đã được hoàn tiền trước đó");
+      }
+
+      if (order.status === "cancelled") {
+        throw new Error("Không thể hoàn tiền đơn hàng đã hủy");
+      }
+
+      if (!order.isPaid) {
+        throw new Error("Không thể hoàn tiền đơn hàng chưa thanh toán");
+      }
+
+      const mongoose = require("mongoose");
+
+      // Cập nhật thông tin hoàn tiền
+      order.status = "refunded";
+      order.refundInfo = {
+        refundReason: refundData.refundReason,
+        refundDate: new Date(),
+        notes: refundData.notes,
+      };
+
+      await order.save();
+
+      // 💰 TẠO GIAO DỊCH HOÀN TIỀN
+      try {
+        const transaction = await TransactionService.createFromOrderRefund(
+          new mongoose.Types.ObjectId(orderId),
+          new mongoose.Types.ObjectId(order.user), // Pass the user as createdBy
+          refundData.refundReason
+        );
+
+        // Cập nhật refundTransactionId trong order
+        order.refundInfo.refundTransactionId = transaction._id.toString();
+        await order.save();
+
+        console.log(`💸 Đã tạo giao dịch hoàn tiền cho đơn hàng: ${orderId}`);
+      } catch (transactionError) {
+        console.error("⚠️ Lỗi tạo giao dịch hoàn tiền:", transactionError);
+      }
+
+      // 📦 TẠO PHIẾU NHẬP KHO (nếu được yêu cầu)
+      if (refundData.createImportVoucher && order.orderItems.length > 0) {
+        try {
+          const importItems = order.orderItems.map((item: any) => ({
+            product: item.product._id || item.product,
+            productName: item.product.name || item.name,
+            quantity: item.quantity,
+            unit: item.product.unit || "cái",
+            costPrice: item.product.costPrice || item.price,
+          }));
+
+          await StockVoucherService.createImportVoucherFromRefund(
+            new mongoose.Types.ObjectId(orderId),
+            importItems,
+            new mongoose.Types.ObjectId(order.user), // Assuming order.user is the creator
+            refundData.refundReason
+          );
+          console.log(
+            `📦 Đã tạo phiếu nhập kho hoàn trả cho đơn hàng: ${orderId}`
+          );
+        } catch (stockError) {
+          console.error("⚠️ Lỗi tạo phiếu nhập kho hoàn trả:", stockError);
+        }
+      }
+
+      console.log(`💸 Đã hoàn tiền đơn hàng: ${orderId}`);
+      return order;
+    } catch (error) {
+      console.error("❌ Lỗi hoàn tiền đơn hàng:", error);
+      throw error;
+    }
+  }
+
+  /**
    * 🎯 XỬ LÝ THAY ĐỔI TRẠNG THÁI TỰ ĐỘNG
    */
   private static async handleStatusChange(
@@ -211,6 +305,10 @@ export class OrderService {
         throw new Error("Không thể hủy đơn hàng đã hoàn thành");
       }
 
+      if (order.status === "refunded") {
+        throw new Error("Không thể hủy đơn hàng đã hoàn tiền");
+      }
+
       order.status = "cancelled";
       await order.save();
 
@@ -229,7 +327,11 @@ export class OrderService {
     try {
       const order = await Order.findById(orderId)
         .populate("user", "email lastName")
-        .populate("orderItems.product", "name price image");
+        .populate("orderItems.product", "name price image")
+        .populate({
+          path: "user",
+          select: "firstName lastName email",
+        });
 
       return order;
     } catch (error) {
@@ -246,15 +348,16 @@ export class OrderService {
     options: any = {}
   ): Promise<IOrder[]> {
     try {
-      const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
-      const skip = (page - 1) * limit;
+      const { page = 1, sort = { createdAt: -1 } } = options;
 
       const orders = await Order.find(filter)
         .populate("user", "email lastName")
         .populate("orderItems.product", "name price image")
-        .sort(sort)
-        .skip(skip)
-        .limit(limit);
+        .populate({
+          path: "user",
+          select: "firstName lastName email",
+        })
+        .sort(sort);
 
       return orders;
     } catch (error) {
@@ -270,6 +373,10 @@ export class OrderService {
     try {
       const orders = await Order.find({ user: userId })
         .populate("orderItems.product", "name price image")
+        .populate({
+          path: "user",
+          select: "firstName lastName email",
+        })
         .sort({ createdAt: -1 });
 
       return orders;

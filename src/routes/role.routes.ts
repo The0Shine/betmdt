@@ -8,14 +8,27 @@ import {
   getPermissions,
 } from "../controllers/role.controller";
 import { auth } from "../middlewares/auth.middleware";
+import {
+  loadUser,
+  requirePermission,
+} from "../middlewares/permission.middleware";
 
 const router = express.Router();
 
-// Tất cả routes yêu cầu authentication
-router.use(auth);
+// Protected routes
+router
+  .route("/permissions")
+  .get(auth, loadUser, requirePermission("roles.view"), getPermissions);
 
-router.route("/permissions").get(getPermissions);
-router.route("/").get(getRoles).post(createRole);
-router.route("/:id").get(getRoleById).put(updateRole).delete(deleteRole);
+router
+  .route("/")
+  .get(auth, loadUser, requirePermission("roles.view"), getRoles)
+  .post(auth, loadUser, requirePermission("roles.create"), createRole);
+
+router
+  .route("/:id")
+  .get(auth, loadUser, requirePermission("roles.view"), getRoleById)
+  .put(auth, loadUser, requirePermission("roles.edit"), updateRole)
+  .delete(auth, loadUser, requirePermission("roles.delete"), deleteRole);
 
 export default router;

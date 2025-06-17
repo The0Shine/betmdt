@@ -19,6 +19,13 @@ export interface IPaymentResult {
   email_address?: string;
 }
 
+export interface IRefundInfo {
+  refundReason: string;
+  refundDate: Date;
+  refundTransactionId?: string;
+  notes?: string;
+}
+
 export interface IOrder extends Document {
   user: Types.ObjectId;
   orderItems: IOrderItem[];
@@ -28,7 +35,14 @@ export interface IOrder extends Document {
   totalPrice: number;
   isPaid: boolean;
   paidAt?: Date;
-  status: "pending" | "processing" | "cancelled" | "completed";
+  status:
+    | "pending"
+    | "processing"
+    | "cancelled"
+    | "completed"
+    | "refund_requested"
+    | "refunded";
+  refundInfo?: IRefundInfo;
   createdAt: Date;
   updatedAt: Date;
 }

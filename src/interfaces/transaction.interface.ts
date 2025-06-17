@@ -7,12 +7,7 @@ export interface ITransaction extends Document {
   category: "order" | "stock"; // Chỉ đơn hàng và kho
   amount: number;
   description: string;
-  paymentMethod:
-    | "cash"
-    | "bank_transfer"
-    | "credit_card"
-    | "e_wallet"
-    | "other";
+  paymentMethod: "cash" | "bank_transfer" | "vnpay" | "cod" | "other";
   relatedOrder?: Types.ObjectId;
   relatedVoucher?: Types.ObjectId;
   relatedCustomer?: Types.ObjectId;
@@ -37,12 +32,7 @@ export interface TransactionQueryParams {
   search?: string;
   type?: "income" | "expense";
   category?: "order" | "stock";
-  paymentMethod?:
-    | "cash"
-    | "bank_transfer"
-    | "credit_card"
-    | "e_wallet"
-    | "other";
+  paymentMethod?: "cash" | "bank_transfer" | "vnpay" | "cod" | "other";
   startDate?: string;
   endDate?: string;
   minAmount?: number;

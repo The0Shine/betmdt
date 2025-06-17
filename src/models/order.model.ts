@@ -51,8 +51,24 @@ const OrderSchema: Schema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "processing", "cancelled", "completed"],
+      enum: [
+        "pending",
+        "processing",
+        "cancelled",
+        "completed",
+        "refund_requested",
+        "refunded",
+      ],
       default: "pending",
+    },
+
+    refundInfo: {
+      // refundAmount: { type: Number },
+      refundReason: { type: String },
+      refundDate: { type: Date },
+
+      refundTransactionId: { type: String },
+      notes: { type: String },
     },
   },
   {

@@ -5,17 +5,40 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  // getCategoryTree,
 } from "../controllers/category.controller";
 import { auth } from "../middlewares/auth.middleware";
+import {
+  loadUser,
+  requirePermission,
+} from "../middlewares/permission.middleware";
 
 const router = express.Router();
 
-router.route("/").get(getCategories).post(auth, createCategory);
+// Public routes
+router.route("/").get(getCategories);
+router.route("/:id").get(getCategoryById);
 
-router
-  .route("/:id")
-  .get(getCategoryById)
-  .put(auth, updateCategory)
-  .delete(auth, deleteCategory);
+// Protected routes
+router.post(
+  "/",
+  auth,
+  loadUser,
+  requirePermission("categories.create"),
+  createCategory
+);
+router.put(
+  "/:id",
+  auth,
+  loadUser,
+  requirePermission("categories.edit"),
+  updateCategory
+);
+router.delete(
+  "/:id",
+  auth,
+  loadUser,
+  requirePermission("categories.delete"),
+  deleteCategory
+);
+
 export default router;

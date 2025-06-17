@@ -65,6 +65,62 @@ export class TransactionService {
   }
 
   /**
+   * 🎯 TẠO GIAO DỊCH HOÀN TIỀN TỪ ĐƠN HÀNG
+   * Được gọi khi đơn hàng được hoàn tiền
+   */
+  static async createFromOrderRefund(
+    orderId: Types.ObjectId,
+    createdBy: Types.ObjectId,
+    refundReason: string
+  ): Promise<ITransaction> {
+    try {
+      const order = await Order.findById(orderId).populate(
+        "user",
+        "firstName lastName email"
+      );
+      if (!order) {
+        throw new Error("Không tìm thấy đơn hàng");
+      }
+
+      // Type assertion for populated user
+      const populatedUser = order.user as any;
+      const customerName = populatedUser
+        ? `${populatedUser.firstName || ""} ${
+            populatedUser.lastName || ""
+          }`.trim()
+        : "";
+
+      const transaction = new Transaction({
+        type: "expense", // Hoàn tiền là chi tiền
+        category: "order",
+        amount: order.totalPrice, // Hoàn toàn bộ số tiền đơn hàng
+        description: `Hoàn tiền đơn hàng #${orderId.toString().slice(-8)}`,
+        paymentMethod: order.paymentMethod, // Sử dụng cùng phương thức thanh toán
+        relatedOrder: orderId,
+        relatedCustomer: order.user,
+        createdBy,
+        transactionDate: new Date(),
+        notes: `Hoàn tiền cho khách hàng ${customerName}. Lý do: ${refundReason}`,
+        metadata: {
+          orderNumber: orderId.toString().slice(-8),
+          customerInfo: customerName,
+          refundReason: refundReason,
+          autoCreated: true,
+        },
+      });
+
+      await transaction.save();
+      console.log(
+        `✅ Đã tạo giao dịch hoàn tiền: ${transaction.transactionNumber}`
+      );
+      return transaction;
+    } catch (error) {
+      console.error("❌ Lỗi tạo giao dịch hoàn tiền:", error);
+      throw error;
+    }
+  }
+
+  /**
    * 🎯 TẠO GIAO DỊCH TỰ ĐỘNG TỪ PHIẾU NHẬP KHO
    * Được gọi khi phiếu nhập kho được duyệt
    */
@@ -223,6 +279,20 @@ export class TransactionService {
                 ],
               },
             },
+            orderRefund: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$type", "expense"] },
+                      { $eq: ["$category", "order"] },
+                    ],
+                  },
+                  "$amount",
+                  0,
+                ],
+              },
+            },
             stockExpense: {
               $sum: {
                 $cond: [
@@ -256,6 +326,7 @@ export class TransactionService {
         totalIncome: 0,
         totalExpense: 0,
         orderIncome: 0,
+        orderRefund: 0,
         stockExpense: 0,
         transactionCount: 0,
         incomeCount: 0,
@@ -265,6 +336,7 @@ export class TransactionService {
       return {
         ...result,
         netAmount: result.totalIncome - result.totalExpense,
+        netOrderAmount: result.orderIncome - result.orderRefund, // Thu ròng từ đơn hàng
         averageTransaction:
           result.transactionCount > 0
             ? (result.totalIncome + result.totalExpense) /
