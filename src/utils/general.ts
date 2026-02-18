@@ -1,13 +1,24 @@
-import { IResponse } from "../interfaces/response/response.interface";
+import { Response } from "express";
+import { IResponse, IListResponse } from "../interfaces/response/response.interface";
 
-//SEND RESPONSE FOR LIST
-const jsonAll = function <Res>(
-  res: any,
+/**
+ * Standard response envelope for ALL API responses:
+ * {
+ *   success: true,
+ *   data: <payload>,
+ *   meta?: { count, total, pagination, etc. } // only for lists
+ * }
+ */
+
+// SEND RESPONSE FOR LIST
+const jsonAll = function <T>(
+  res: Response,
   status: number,
-  data: Res[],
+  data: T[],
   meta: Object = {}
-): IResponse<Res> {
+): Response<IListResponse<T>> {
   return res.status(status).json({
+    success: true,
     data: data,
     meta: {
       ...meta,
@@ -15,9 +26,14 @@ const jsonAll = function <Res>(
   });
 };
 
-//SEND RESPONSE FOR DETAIL
-const jsonOne = function <Res>(res: any, status: number, data: Res): Res {
+// SEND RESPONSE FOR SINGLE ITEM
+const jsonOne = function <T>(
+  res: Response,
+  status: number,
+  data: T
+): Response<IResponse<T>> {
   return res.status(status).json({
+    success: true,
     data,
   });
 };

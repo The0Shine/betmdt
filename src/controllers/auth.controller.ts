@@ -16,6 +16,8 @@ import {
   decodeRefreshToken,
 } from "../utils/jwt";
 import { IAuthUserReqBody } from "../interfaces/request/admin.interface";
+import { ILoginResponse, IRegisterResponse } from "../interfaces/response/auth.interface";
+import { IUserResponse } from "../interfaces/response/user.interface";
 
 // @desc    Registrar usuario
 // @route   POST /api/auth/register
@@ -70,7 +72,7 @@ export const register = async (
 
     await newUser.save();
 
-    jsonOne(res, StatusCodes.CREATED, {
+    jsonOne<IRegisterResponse>(res, StatusCodes.CREATED, {
       message: "User registered successfully",
     });
   } catch (error) {
@@ -122,7 +124,7 @@ export const login = async (
       }),
     ]);
 
-    jsonOne(res, StatusCodes.OK, {
+    jsonOne<ILoginResponse>(res, StatusCodes.OK, {
       accessToken,
       refreshToken,
     });
@@ -155,7 +157,7 @@ export const getMe = async (
 
     //     await setOneCache(cacheKey, user);
     // }
-    jsonOne(res, StatusCodes.OK, user);
+    jsonOne<IUserResponse>(res, StatusCodes.OK, user as unknown as IUserResponse);
   } catch (error) {
     next(error);
   }
@@ -180,10 +182,10 @@ export const updateDetails = asyncHandler(
       runValidators: true,
     });
 
-    res.status(200).json({
-      success: true,
-      data: user,
-    });
+    const userObj = user!.toObject();
+    delete userObj.role;
+
+    jsonOne(res, 200, userObj);
   }
 );
 export const changePassword = asyncHandler(
@@ -220,9 +222,6 @@ export const changePassword = asyncHandler(
     user.password = await hashPassword(newPassword);
     await user.save();
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Đổi mật khẩu thành công",
-    });
+    jsonOne(res, StatusCodes.OK, { message: "Đổi mật khẩu thành công" });
   }
 );

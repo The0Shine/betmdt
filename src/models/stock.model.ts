@@ -83,6 +83,7 @@ const StockSchema: Schema = new Schema(
     voucherNumber: {
       type: String,
       unique: true,
+      index: true,
     },
     type: {
       type: String,
@@ -241,7 +242,6 @@ StockSchema.pre<IStock>("save", async function (next) {
 });
 
 // Index cho Stock
-StockSchema.index({ voucherNumber: 1 });
 StockSchema.index({ type: 1, status: 1 });
 StockSchema.index({ createdBy: 1 });
 StockSchema.index({ relatedOrder: 1 });

@@ -14,14 +14,14 @@ export interface IProduct extends Document {
   images?: string[]
   barcode: string
   unit: string
-  costPrice: number
-  featured?: boolean
-  recommended?: boolean
-  hot?: boolean
-  new?: boolean
+  costPrice?: number
+  // Consolidated tags array replaces: hot, featured, recommended, new
+  tags: string[]
   specifications?: Record<string, string>
   rating?: number
   reviews?: number
+  published?: boolean
   createdAt: Date
   updatedAt: Date
 }
+

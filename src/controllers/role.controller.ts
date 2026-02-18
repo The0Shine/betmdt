@@ -315,9 +315,7 @@ export const deleteRole = async (
 
     await Role.findByIdAndDelete(id);
 
-    res.status(StatusCodes.OK).json({
-      message: "Xóa vai trò thành công",
-    });
+    jsonOne(res, StatusCodes.OK, { message: "Xóa vai trò thành công" });
   } catch (error) {
     next(error);
   }

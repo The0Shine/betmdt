@@ -3,7 +3,8 @@ import { StatusCodes } from "http-status-codes";
 import Product from "../models/product.model";
 import { asyncHandler } from "../middlewares/async.middleware";
 import { ErrorResponse } from "../utils/errorResponse";
-import { jsonOne } from "../utils/general";
+import { jsonOne, jsonAll } from "../utils/general";
+import { IProductPublicResponse, IProductAdminResponse } from "../interfaces/response/product.interface";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
 import categoryModel from "../models/category.model";
 
@@ -18,10 +19,10 @@ export const getProducts = asyncHandler(
     if (req.query.category) filter.category = req.query.category;
     if (req.query.subcategory) filter.subcategory = req.query.subcategory;
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.featured === "true") filter.featured = true;
-    if (req.query.recommended === "true") filter.recommended = true;
-    if (req.query.hot === "true") filter.hot = true;
-    if (req.query.new === "true") filter.new = true;
+    // Filter by tags (replaces boolean flags)
+    if (req.query.tag) {
+      filter.tags = { $in: [req.query.tag] };
+    }
     if (req.query.published === "true") filter.published = true;
 
     if (req.query.minPrice || req.query.maxPrice) {
@@ -46,12 +47,11 @@ export const getProducts = asyncHandler(
     }
 
     const [products, total] = await Promise.all([
-      Product.find(filter).sort(sort).skip(skip).limit(limit),
+      Product.find(filter).select("-costPrice").populate("category", "_id name").sort(sort).skip(skip).limit(limit),
       Product.countDocuments(filter),
     ]);
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
+    const meta = {
       count: products.length,
       total,
       pagination: {
@@ -59,8 +59,9 @@ export const getProducts = asyncHandler(
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data: products,
-    });
+    };
+
+    return jsonAll<IProductPublicResponse>(res, StatusCodes.OK, products as any, meta);
   }
 );
 export const getProductsAdmin = asyncHandler(
@@ -71,10 +72,10 @@ export const getProductsAdmin = asyncHandler(
     if (req.query.category) filter.category = req.query.category;
     if (req.query.subcategory) filter.subcategory = req.query.subcategory;
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.featured === "true") filter.featured = true;
-    if (req.query.recommended === "true") filter.recommended = true;
-    if (req.query.hot === "true") filter.hot = true;
-    if (req.query.new === "true") filter.new = true;
+    // Filter by tags (replaces boolean flags)
+    if (req.query.tag) {
+      filter.tags = { $in: [req.query.tag] };
+    }
     if (req.query.published === "true") filter.published = true;
 
     if (req.query.minPrice || req.query.maxPrice) {
@@ -99,12 +100,11 @@ export const getProductsAdmin = asyncHandler(
     }
 
     const [products, total] = await Promise.all([
-      Product.find(filter).sort(sort).skip(skip).limit(limit),
+      Product.find(filter).populate("category", "_id name").sort(sort).skip(skip).limit(limit),
       Product.countDocuments(filter),
     ]);
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
+    const meta = {
       count: products.length,
       total,
       pagination: {
@@ -112,8 +112,9 @@ export const getProductsAdmin = asyncHandler(
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data: products,
-    });
+    };
+
+    return jsonAll<IProductAdminResponse>(res, StatusCodes.OK, products as any, meta);
   }
 );
 
@@ -122,7 +123,7 @@ export const getProductsAdmin = asyncHandler(
 // @access  Public
 export const getProductById = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).select("-costPrice").populate("category", "_id name");
 
     if (!product) {
       return next(
@@ -133,7 +134,7 @@ export const getProductById = asyncHandler(
       );
     }
 
-    return jsonOne(res, StatusCodes.OK, product);
+    return jsonOne<IProductPublicResponse>(res, StatusCodes.OK, product as any);
   }
 );
 
@@ -157,9 +158,7 @@ export const createProduct = asyncHandler(
 
     const categoryExists = await categoryModel.findById(category);
     if (!categoryExists) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Invalid category ID" });
+      return jsonOne(res, StatusCodes.BAD_REQUEST, { message: "Invalid category ID" });
     }
     const product = await Product.create({
       name,
@@ -173,7 +172,8 @@ export const createProduct = asyncHandler(
       barcode,
       costPrice,
     });
-    return jsonOne(res, StatusCodes.CREATED, product);
+    const populatedProduct = await Product.findById(product._id).populate("category", "_id name");
+    return jsonOne<IProductAdminResponse>(res, StatusCodes.CREATED, populatedProduct as any);
   }
 );
 
@@ -193,12 +193,18 @@ export const updateProduct = asyncHandler(
       );
     }
 
+    // Auto-set oldPrice when price changes
+    if (req.body.price !== undefined && req.body.price !== product.price) {
+      req.body.oldPrice = product.price;
+    }
+
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
 
-    return jsonOne(res, StatusCodes.OK, product);
+    const populatedProduct = await Product.findById(product?._id).populate("category", "_id name");
+    return jsonOne<IProductAdminResponse>(res, StatusCodes.OK, populatedProduct as any);
   }
 );
 
@@ -219,9 +225,6 @@ export const deleteProduct = asyncHandler(
     }
 
     await product.deleteOne();
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      data: {},
-    });
+    return jsonOne(res, StatusCodes.OK, { message: "Đã xóa sản phẩm" });
   }
 );

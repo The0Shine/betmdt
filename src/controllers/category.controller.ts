@@ -3,7 +3,8 @@ import { StatusCodes } from "http-status-codes";
 import Category from "../models/category.model";
 import { asyncHandler } from "../middlewares/async.middleware";
 import { ErrorResponse } from "../utils/errorResponse";
-import { jsonOne } from "../utils/general";
+import { jsonOne, jsonAll } from "../utils/general";
+import { ICategoryResponse } from "../interfaces/response/category.interface";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
 import { log } from "console";
 
@@ -47,8 +48,7 @@ export const getCategories = asyncHandler(
       Category.countDocuments(filter),
     ]);
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
+    const meta = {
       count: categories.length,
       total,
       pagination:
@@ -59,8 +59,9 @@ export const getCategories = asyncHandler(
               totalPages: Math.ceil(total / limit),
             }
           : null,
-      data: categories,
-    });
+    };
+
+    return jsonAll<ICategoryResponse>(res, StatusCodes.OK, categories as any, meta);
   }
 );
 
@@ -124,7 +125,7 @@ export const getCategoryById = asyncHandler(
       );
     }
 
-    return jsonOne(res, StatusCodes.OK, category);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category as any);
   }
 );
 
@@ -178,7 +179,7 @@ export const createCategory = asyncHandler(
       "parent",
       "name"
     );
-    return jsonOne(res, StatusCodes.CREATED, populatedCategory);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.CREATED, populatedCategory as any);
   }
 );
 
@@ -261,7 +262,7 @@ export const updateCategory = asyncHandler(
       }
     ).populate("parent", "name");
 
-    return jsonOne(res, StatusCodes.OK, category);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category as any);
   }
 );
 
@@ -294,9 +295,6 @@ export const deleteCategory = asyncHandler(
 
     await category.deleteOne();
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      data: {},
-    });
+    return jsonOne(res, StatusCodes.OK, { message: "Đã xóa danh mục" });
   }
 );

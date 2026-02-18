@@ -1,13 +1,16 @@
 import type { Request, Response, NextFunction } from "express";
 import type { ParamsDictionary } from "express-serve-static-core";
 import { StatusCodes } from "http-status-codes";
-import User, { IUser } from "../models/user.model";
+import User from "../models/user.model";
+import { IUser } from "../interfaces/user.interface";
 import { asyncHandler } from "../middlewares/async.middleware";
 import { ErrorResponse } from "../utils/errorResponse";
 import { jsonOne } from "../utils/general";
 import { jsonAll } from "../utils/general";
 import { createPageOptions, createSearchText } from "../utils/pagination";
-import { IRefreshReqBody } from "../interfaces/request/users.interface";
+import { IUserResponse } from "../interfaces/response/user.interface";
+import { ITokenResponse } from "../interfaces/response/auth.interface";
+import { IMessageResponse } from "../interfaces/response/response.interface";
 import {
   decodeRefreshToken,
   signAccessToken,
@@ -19,6 +22,7 @@ import mongoose, { Types } from "mongoose";
 import { token } from "morgan";
 import { log } from "console";
 import { hashPassword } from "../utils/crypto";
+import { IRefreshReqBody } from "../interfaces/request/users.interface";
 // @desc    Obtener todos los usuarios
 // @route   GET /api/users
 // @access  Private/Admin
@@ -83,7 +87,7 @@ export const getUsers = async (
       },
     };
 
-    jsonAll(res, StatusCodes.OK, usersWithPermissions, meta);
+    jsonAll<IUserResponse>(res, StatusCodes.OK, usersWithPermissions as any, meta);
   } catch (error) {
     next(error);
   }
@@ -120,7 +124,7 @@ export const getUserById = async (
       canEdit: role?.name !== "Super Admin",
     };
 
-    jsonOne(res, StatusCodes.OK, userWithPermissions);
+    jsonOne<IUserResponse>(res, StatusCodes.OK, userWithPermissions as any);
   } catch (error) {
     next(error);
   }
@@ -147,7 +151,11 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     password: hashedPassword,
   });
 
-  return jsonOne(res, StatusCodes.CREATED, user);
+  // Note: newUser.save() returns the document, simpler than pulling from DB again but might miss virtuals if not careful
+  // Here we return simpler object or re-fetch if needed. For now casting.
+  const userObj = user.toObject();
+  delete userObj.role;
+  return jsonOne<IUserResponse>(res, StatusCodes.CREATED, userObj as any);
 });
 
 // @desc    Actualizar un usuario
@@ -215,17 +223,19 @@ export const updateUser = async (
       }
     }
 
+    // Build update object based on fields present in req.body
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+    if (role !== undefined) updateData.role = role;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      {
-        firstName: firstName || user.firstName,
-        lastName: lastName || user.lastName,
-        email: email || user.email,
-        phone: phone !== undefined ? phone : user.phone,
-        address: address !== undefined ? address : user.address,
-        role: role || user.role,
-        avatar: avatar || user.avatar,
-      },
+      updateData,
       { new: true, runValidators: true }
     )
       .populate("role", "name permissions")
@@ -240,7 +250,7 @@ export const updateUser = async (
       canEdit: updatedRole?.name !== "Super Admin",
     };
 
-    jsonOne(res, StatusCodes.OK, userWithPermissions);
+    jsonOne<IUserResponse>(res, StatusCodes.OK, userWithPermissions as any);
   } catch (error) {
     next(error);
   }
@@ -296,7 +306,7 @@ export const refreshController = async (
       }),
     ]);
 
-    jsonOne(res, StatusCodes.OK, { accessToken, refreshToken });
+    jsonOne<ITokenResponse>(res, StatusCodes.OK, { accessToken, refreshToken });
   } catch (error) {
     next(
       new HttpError({
@@ -327,7 +337,7 @@ export const getWishlist = async (
       await user.save();
     }
 
-    jsonOne(res, StatusCodes.OK, user.wishlist);
+    jsonOne<Types.ObjectId[]>(res, StatusCodes.OK, user.wishlist);
   } catch (error) {
     next(error);
   }
@@ -374,7 +384,7 @@ export const addToWishlist = async (
       await user.save();
     }
 
-    jsonOne(res, StatusCodes.OK, { message: "Added to wishlist" });
+    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Added to wishlist" });
   } catch (error) {
     next(error);
   }
@@ -401,7 +411,7 @@ export const removeFromWishlist = async (
     user.wishlist = user.wishlist.filter((id) => id.toString() !== productId);
     await user.save();
 
-    jsonOne(res, StatusCodes.OK, { message: "Removed from wishlist" });
+    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Removed from wishlist" });
   } catch (error) {
     next(error);
   }
@@ -468,7 +478,7 @@ export const resetPassword = async (
     user.password = await hashPassword(newPassword);
 
     await user.save();
-    jsonOne(res, StatusCodes.OK, { message: "Đặt lại mật khẩu thành công" });
+    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Đặt lại mật khẩu thành công" });
     // Mã hóa mật khẩu mới
   } catch (error) {
     next(error);

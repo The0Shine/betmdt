@@ -1,13 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-export interface IRole {
-  _id?: string;
-  name: string;
-  description?: string;
-  permissions: string[];
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { IRole } from "../interfaces/role.interface";
 
 const RoleSchema = new Schema<IRole>(
   {

@@ -31,7 +31,7 @@ export const getCart = async (
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description quantity",
+        select: "_id name price image description quantity",
       },
     });
 
@@ -146,7 +146,7 @@ export const addItemToCart = async (
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description quantity",
+        select: "_id name price image description quantity",
       },
     });
 
@@ -219,7 +219,7 @@ export const updateCartItemQuantity = async (
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description quantity",
+        select: "_id name price image description quantity",
       },
     });
 
@@ -283,7 +283,7 @@ export const deleteCartItem = async (
       path: "items",
       populate: {
         path: "product",
-        select: "name price image description quantity",
+        select: "_id name price image description quantity",
       },
     });
 

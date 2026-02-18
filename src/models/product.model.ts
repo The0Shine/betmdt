@@ -62,21 +62,11 @@ const ProductSchema: Schema = new Schema(
       type: Number,
       min: 0,
     },
-    featured: {
-      type: Boolean,
-      default: false,
-    },
-    recommended: {
-      type: Boolean,
-      default: false,
-    },
-    hot: {
-      type: Boolean,
-      default: false,
-    },
-    new: {
-      type: Boolean,
-      default: false,
+    // Consolidated tags array replaces: hot, featured, recommended, new
+    tags: {
+      type: [String],
+      index: true,
+      default: [],
     },
     specifications: {
       type: Map,
@@ -100,8 +90,17 @@ const ProductSchema: Schema = new Schema(
   }
 );
 
-// Middleware para actualizar el estado del producto basado en el stock
+// Middleware to auto-update oldPrice when price changes
 ProductSchema.pre<IProduct>("save", function (next) {
+  // Auto-set oldPrice when price is modified (not on create)
+  if (this.isModified("price") && !this.isNew) {
+    // Get the original price from DB before this save
+    // Note: this.get("price") returns the NEW value, not old
+    // We need to use $locals to store original or handle in controller
+    // For simplicity, controller will handle oldPrice logic
+  }
+
+  // Auto-update status based on quantity
   if (this.isModified("quantity")) {
     this.status = this.quantity > 0 ? "in-stock" : "out-of-stock";
   }
@@ -109,3 +108,4 @@ ProductSchema.pre<IProduct>("save", function (next) {
 });
 
 export default mongoose.model<IProduct>("Product", ProductSchema);
+

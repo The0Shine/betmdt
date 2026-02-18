@@ -1,21 +1,6 @@
 import mongoose, { Schema, Types } from "mongoose";
 
-export interface IUser {
-  _id?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  avatar?: string;
-  phone?: string;
-  address?: string;
-  role?: Types.ObjectId;
-  wishlist?: Types.ObjectId[];
-  resetPasswordToken?: string;
-  resetPasswordExpire?: Date;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+import { IUser } from "../interfaces/user.interface";
 
 const UserSchema = new Schema<IUser>(
   {

@@ -4,10 +4,11 @@ import Product from "../models/product.model";
 import { Stock, StockHistory } from "../models/stock.model";
 import { TransactionService } from "../services/transaction.service";
 import HttpError from "../utils/httpError";
-import { jsonOne } from "../utils/general";
+import { jsonOne, jsonAll } from "../utils/general";
 import { createPageOptions } from "../utils/pagination";
 import mongoose, { Types } from "mongoose";
 import orderModel from "../models/order.model";
+import { IStockVoucherResponse, IStockHistoryResponse } from "../interfaces/response/stock.interface";
 
 // @desc    Lấy tất cả phiếu kho
 // @route   GET /api/stock
@@ -66,8 +67,7 @@ export const getStockVouchers = async (
     ]);
 
     // KHÔNG return, chỉ gọi res.json
-    res.status(StatusCodes.OK).json({
-      success: true,
+    const meta = {
       count: vouchers.length,
       total,
       pagination: {
@@ -75,8 +75,9 @@ export const getStockVouchers = async (
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data: vouchers,
-    });
+    };
+
+    jsonAll<IStockVoucherResponse>(res, StatusCodes.OK, vouchers as any, meta);
   } catch (error) {
     next(error);
   }
@@ -116,7 +117,7 @@ export const getStockVoucherById = async (
       });
     }
 
-    jsonOne(res, StatusCodes.OK, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
   } catch (error) {
     next(error);
   }
@@ -194,7 +195,7 @@ export const createStockVoucher = async (
     await voucher.populate("items.product", "name");
 
     console.log(`📋 Đã tạo phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne(res, StatusCodes.CREATED, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher as any);
   } catch (error) {
     next(error);
   }
@@ -244,7 +245,7 @@ export const updateStockVoucher = async (
       .populate("createdBy", "lastName email")
       .populate("items.product", "name");
 
-    jsonOne(res, StatusCodes.OK, updated);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, updated as any);
   } catch (error) {
     next(error);
   }
@@ -288,7 +289,7 @@ export const deleteStockVoucher = async (
     }
 
     await voucher.deleteOne();
-    res.status(StatusCodes.OK).json({ success: true, data: {} });
+    jsonOne(res, StatusCodes.OK, { message: "Đã xóa phiếu kho" });
   } catch (error) {
     next(error);
   }
@@ -455,7 +456,7 @@ export const approveStockVoucher = async (
     console.log(
       `✅ Đã phê duyệt phiếu ${voucher.type} kho: ${voucher.voucherNumber}`
     );
-    jsonOne(res, StatusCodes.OK, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
   } catch (error) {
     next(error);
   }
@@ -507,7 +508,7 @@ export const rejectStockVoucher = async (
     await voucher.save();
 
     console.log(`❌ Đã từ chối phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne(res, StatusCodes.OK, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
   } catch (error) {
     next(error);
   }
@@ -554,7 +555,7 @@ export const cancelStockVoucher = async (
     await voucher.save();
 
     console.log(`🚫 Đã hủy phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne(res, StatusCodes.OK, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
   } catch (error) {
     next(error);
   }
@@ -623,8 +624,7 @@ export const getStockHistory = async (
       StockHistory.countDocuments(filter),
     ]);
 
-    jsonOne(res, StatusCodes.OK, {
-      success: true,
+    const meta = {
       count: history.length,
       total,
       pagination: {
@@ -632,8 +632,9 @@ export const getStockHistory = async (
         limit,
         totalPages: Math.ceil(total / limit),
       },
-      data: history,
-    });
+    };
+
+    jsonAll<IStockHistoryResponse>(res, StatusCodes.OK, history as any, meta);
   } catch (error) {
     next(error);
   }
@@ -730,7 +731,7 @@ export const createStockVoucherFromOrder = async (
       `📋 Đã tạo phiếu kho từ đơn hàng: ${voucher.voucherNumber || voucher._id}`
     );
 
-    jsonOne(res, StatusCodes.CREATED, voucher);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher as any);
   } catch (error) {
     next(error);
   }

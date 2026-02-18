@@ -5,6 +5,7 @@ import Product from "../models/product.model";
 import HttpError from "../utils/httpError";
 import { jsonOne, jsonAll } from "../utils/general";
 import Order from "../models/order.model";
+import { IOrderResponse, IRefundResponse } from "../interfaces/response/order.interface";
 
 // @desc    Tạo đơn hàng mới
 // @route   POST /api/orders
@@ -91,7 +92,7 @@ export const createOrder = async (
     // Lấy đơn hàng với đầy đủ thông tin
     const createdOrder = await OrderService.getOrderById(order._id.toString());
 
-    jsonOne(res, StatusCodes.CREATED, createdOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.CREATED, createdOrder as any);
   } catch (error) {
     next(error);
   }
@@ -126,7 +127,7 @@ export const getOrderById = async (
       });
     }
 
-    jsonOne(res, StatusCodes.OK, order);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, order as any);
   } catch (error) {
     next(error);
   }
@@ -165,7 +166,7 @@ export const updateOrderToPaid = async (
       userId
     );
 
-    jsonOne(res, StatusCodes.OK, updatedOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
   } catch (error) {
     next(error);
   }
@@ -189,7 +190,7 @@ export const updateOrderToCompleted = async (
       userId
     );
 
-    jsonOne(res, StatusCodes.OK, updatedOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
   } catch (error) {
     next(error);
   }
@@ -208,7 +209,7 @@ export const getMyOrders = async (
 
     const orders = await OrderService.getUserOrders(userId);
 
-    jsonAll(res, StatusCodes.OK, orders);
+    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders as any);
   } catch (error) {
     next(error);
   }
@@ -236,7 +237,7 @@ export const getOrders = async (
 
     const orders = await OrderService.getOrders(filter, options);
 
-    jsonAll(res, StatusCodes.OK, orders);
+    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders as any);
   } catch (error) {
     next(error);
   }
@@ -287,7 +288,7 @@ export const updateOrderStatus = async (
       userId
     );
 
-    jsonOne(res, StatusCodes.OK, updatedOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
   } catch (error) {
     next(error);
   }
@@ -362,10 +363,10 @@ export const requestRefund = async (
 
     await order.save();
 
-    jsonOne(res, StatusCodes.OK, {
+    jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
       message: "Yêu cầu hoàn tiền đã được gửi",
-      order,
+      order: order as any,
     });
   } catch (error) {
     next(error);
@@ -418,10 +419,10 @@ export const approveRefund = async (
       createImportVoucher,
     });
 
-    jsonOne(res, StatusCodes.OK, {
+    jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
       message: "Đã duyệt yêu cầu hoàn tiền",
-      order: refundedOrder,
+      order: refundedOrder as any,
     });
   } catch (error) {
     next(error);
@@ -441,7 +442,7 @@ export const cancelOrder = async (
 
     const updatedOrder = await OrderService.cancelOrder(orderId);
 
-    jsonOne(res, StatusCodes.OK, updatedOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
   } catch (error) {
     next(error);
   }
@@ -476,7 +477,7 @@ export const refundOrder = async (
       createImportVoucher,
     });
 
-    jsonOne(res, StatusCodes.OK, refundedOrder);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, refundedOrder as any);
   } catch (error) {
     next(error);
   }
@@ -522,10 +523,10 @@ export const rejectRefund = async (
 
     await order.save();
 
-    jsonOne(res, StatusCodes.OK, {
+    jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
       message: "Đã từ chối yêu cầu hoàn tiền",
-      order,
+      order: order as any,
     });
   } catch (error) {
     next(error);

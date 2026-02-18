@@ -3,9 +3,10 @@ import { StatusCodes } from "http-status-codes";
 import Transaction from "../models/transaction.model";
 import { TransactionService } from "../services/transaction.service";
 import HttpError from "../utils/httpError";
-import { jsonOne } from "../utils/general";
+import { jsonOne, jsonAll } from "../utils/general";
 import { createPageOptions } from "../utils/pagination";
 import mongoose from "mongoose";
+import { ITransactionResponse, ITransactionStatsResponse } from "../interfaces/response/transaction.interface";
 
 // @desc    Lấy danh sách giao dịch (CHỈ XEM - KHÔNG TẠO THỦ CÔNG)
 // @route   GET /api/transactions
@@ -90,8 +91,7 @@ export const getTransactions = async (
       req.query.endDate ? new Date(req.query.endDate as string) : undefined
     );
 
-    res.status(StatusCodes.OK).json({
-      success: true,
+    const meta = {
       count: transactions.length,
       total,
       pagination: {
@@ -100,8 +100,9 @@ export const getTransactions = async (
         totalPages: Math.ceil(total / limit),
       },
       summary,
-      data: transactions,
-    });
+    };
+
+    jsonAll<ITransactionResponse>(res, StatusCodes.OK, transactions as any, meta);
   } catch (error) {
     next(error);
   }
@@ -143,7 +144,7 @@ export const getTransactionById = async (
       });
     }
 
-    jsonOne(res, StatusCodes.OK, transaction);
+    jsonOne<ITransactionResponse>(res, StatusCodes.OK, transaction as any);
   } catch (error) {
     next(error);
   }
@@ -189,16 +190,13 @@ export const getTransactionStats = async (
       TransactionService.getCategoryBreakdown(thisMonth),
     ]);
 
-    res.status(StatusCodes.OK).json({
-      success: true,
-      data: {
-        today: todayStats,
-        thisWeek: weekStats,
-        thisMonth: monthStats,
-        thisYear: yearStats,
-        recentTransactions,
-        categoryBreakdown,
-      },
+    jsonOne<ITransactionStatsResponse>(res, StatusCodes.OK, {
+      today: todayStats,
+      thisWeek: weekStats,
+      thisMonth: monthStats,
+      thisYear: yearStats,
+      recentTransactions: recentTransactions as any,
+      categoryBreakdown,
     });
   } catch (error) {
     next(error);

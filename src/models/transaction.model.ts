@@ -6,6 +6,7 @@ const TransactionSchema: Schema = new Schema(
     transactionNumber: {
       type: String,
       unique: true,
+      index: true,
     },
     type: {
       type: String,
@@ -103,7 +104,6 @@ TransactionSchema.pre<ITransaction>("save", async function (next) {
 });
 
 // Index
-TransactionSchema.index({ transactionNumber: 1 });
 TransactionSchema.index({ type: 1, category: 1 });
 TransactionSchema.index({ transactionDate: -1 });
 TransactionSchema.index({ relatedOrder: 1 });

@@ -1,4 +1,4 @@
-import type { Document, Schema } from "mongoose";
+import type { Document, Types } from "mongoose";
 
 export interface IUser extends Document {
   firstName: string;
@@ -11,7 +11,8 @@ export interface IUser extends Document {
   city?: string;
   district?: string;
   ward?: string;
-  role: Schema.Types.ObjectId;
+  role: Types.ObjectId;
+  wishlist?: Types.ObjectId[];
   isActive: boolean;
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
