@@ -14,6 +14,7 @@ export interface ICart extends Document {
   user: IUser;
   items: ICartItem[] | string[];
   totalPrice: number;
+  lastActivity: Date;
   createdAt: Date;
   updatedAt: Date;
 }

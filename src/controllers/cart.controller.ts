@@ -90,11 +90,11 @@ export const addItemToCart = async (
     let cart = await Cart.findOne({ user: userId });
 
     if (!cart) {
-      // Nếu giỏ hàng chưa tồn tại, tạo mới
       cart = await Cart.create({
         user: userId,
         items: [],
         totalPrice: 0,
+        lastActivity: new Date(),
       });
     }
 
@@ -139,6 +139,7 @@ export const addItemToCart = async (
       {
         items: cart.items,
         totalPrice: cart.totalPrice,
+        lastActivity: new Date(),
       },
       { new: true }
     );
@@ -223,6 +224,7 @@ export const updateCartItemQuantity = async (
       cart._id,
       {
         totalPrice: cart.totalPrice,
+        lastActivity: new Date(),
       },
       { new: true }
     );
@@ -287,6 +289,7 @@ export const deleteCartItem = async (
       {
         items: cart.items,
         totalPrice: cart.totalPrice,
+        lastActivity: new Date(),
       },
       { new: true }
     );
@@ -339,6 +342,7 @@ export const clearCart = async (
       {
         items: [],
         totalPrice: 0,
+        lastActivity: new Date(),
       },
       { new: true }
     );

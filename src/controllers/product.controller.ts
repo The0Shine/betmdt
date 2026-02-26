@@ -8,6 +8,7 @@ import { IProductPublicResponse, IProductAdminResponse } from "../interfaces/res
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
 import categoryModel from "../models/category.model";
 import { SearchService } from "../services/search.service";
+import { cache, TTL } from "../utils/memCache";
 
 // @desc    Láº¥y táº¥t cáº£ sáº£n pháº©m
 // @route   GET /api/products
@@ -47,10 +48,22 @@ export const getProducts = asyncHandler(
       sort = { [field]: direction };
     }
 
-    const [products, total] = await Promise.all([
-      Product.find(filter).select("-costPrice").populate("category", "_id name").sort(sort).skip(skip).limit(limit),
-      Product.countDocuments(filter),
-    ]);
+    // Cache key encodes full query — different filters = different cache entries
+    const cacheKey = `products:public:${req.url}`;
+    const cachedResult = cache.get<{ products: any[]; total: number }>(cacheKey);
+
+    let products: any[];
+    let total: number;
+
+    if (cachedResult) {
+      ({ products, total } = cachedResult);
+    } else {
+      [products, total] = await Promise.all([
+        Product.find(filter).select("-costPrice").populate("category", "_id name").sort(sort).skip(skip).limit(limit),
+        Product.countDocuments(filter),
+      ]);
+      cache.set(cacheKey, { products, total }, TTL.PRODUCTS);
+    }
 
     const meta = {
       count: products.length,
@@ -58,7 +71,8 @@ export const getProducts = asyncHandler(
       pagination: {
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        // Guard against limit=0 ("fetch all") → Infinity
+        totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
       },
     };
 

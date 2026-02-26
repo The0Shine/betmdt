@@ -1,5 +1,6 @@
 import { VNPayService } from "./vnpay.service";
 import Order from "../models/order.model";
+import { ORDER_STATUS } from "../constants";
 
 export interface CreatePaymentRequest {
   orderData: {
@@ -41,7 +42,7 @@ export class PaymentService {
         const order = new Order({
           ...orderData,
           isPaid: false,
-          status: "pending",
+          status: ORDER_STATUS.PENDING,
           paymentResult: {
             id: "COD",
             status: "PENDING",
@@ -180,7 +181,7 @@ export class PaymentService {
             ...orderData,
             isPaid: true,
             paidAt: new Date(),
-            status: "pending",
+            status: ORDER_STATUS.PENDING,
             paymentResult: {
               id: transactionNo,
               status: "PAID",
@@ -290,7 +291,7 @@ export class PaymentService {
             ...orderData,
             isPaid: true,
             paidAt: new Date(),
-            status: "pending",
+            status: ORDER_STATUS.PENDING,
             paymentResult: {
               id: transactionNo,
               status: "PAID",

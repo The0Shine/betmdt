@@ -24,4 +24,7 @@ const CartItemSchema = new Schema<ICartItem>(
   }
 );
 
+// TTL index: Cleanup orphan cart items after 30 days of inactivity.
+CartItemSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+
 export default mongoose.model<ICartItem>("CartItem", CartItemSchema);

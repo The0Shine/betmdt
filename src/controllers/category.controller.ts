@@ -6,7 +6,7 @@ import { ErrorResponse } from "../utils/errorResponse";
 import { jsonOne, jsonAll } from "../utils/general";
 import { ICategoryResponse } from "../interfaces/response/category.interface";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
-import { log } from "console";
+import { cache, TTL } from "../utils/memCache";
 
 // @desc    Láº¥y táº¥t cáº£ danh má»¥c
 // @route   GET /api/categories
@@ -37,16 +37,27 @@ export const getCategories = asyncHandler(
       sort = { [field]: order === "asc" ? 1 : -1 };
     }
 
-    // Táº¡o query chÃ­nh
-    const query = Category.find(filter).populate("parent", "name").sort(sort);
-    if (limit > 0) {
-      query.skip(skip).limit(limit);
-    }
+    // Cache key encodes full query string (includes parentOnly, sort etc.)
+    const cacheKey = `categories:${req.url}`;
+    const cachedResult = cache.get<{ categories: any[]; total: number }>(cacheKey);
 
-    const [categories, total] = await Promise.all([
-      query.exec(),
-      Category.countDocuments(filter),
-    ]);
+    let categories: any[];
+    let total: number;
+
+    if (cachedResult) {
+      ({ categories, total } = cachedResult);
+    } else {
+      const query = Category.find(filter).populate("parent", "name").sort(sort);
+      if (limit > 0) {
+        query.skip(skip).limit(limit);
+      }
+
+      [categories, total] = await Promise.all([
+        query.exec(),
+        Category.countDocuments(filter),
+      ]);
+      cache.set(cacheKey, { categories, total }, TTL.CATEGORIES);
+    }
 
     const meta = {
       count: categories.length,

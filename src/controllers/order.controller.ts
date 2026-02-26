@@ -6,7 +6,7 @@ import HttpError from "../utils/httpError";
 import { jsonOne, jsonAll } from "../utils/general";
 import Order from "../models/order.model";
 import { IOrderResponse, IRefundResponse } from "../interfaces/response/order.interface";
-import { ORDER_STATUS_VALUES } from "../constants";
+import { ORDER_STATUS, ORDER_STATUS_VALUES } from "../constants";
 import { hasPermission, isAdmin } from "../middlewares/permission.middleware";
 
 // @desc    Táº¡o Ä‘Æ¡n hÃ ng má»›i
@@ -211,7 +211,7 @@ export const updateOrderToCompleted = async (
 
     const updatedOrder = await OrderService.updateOrderStatus(
       orderId,
-      "completed",
+      ORDER_STATUS.COMPLETED,
       userId
     );
 
@@ -363,7 +363,7 @@ export const requestRefund = async (
       });
     }
 
-    if (order.status === "refund_requested" || order.status === "refunded") {
+    if (order.status === ORDER_STATUS.REFUND_REQUESTED || order.status === ORDER_STATUS.REFUNDED) {
       throw new HttpError({
         title: "invalid_order_status",
         detail: "ÄÆ¡n hÃ ng Ä‘Ã£ cÃ³ yÃªu cáº§u hoÃ n tiá»n hoáº·c Ä‘Ã£ Ä‘Æ°á»£c hoÃ n tiá»n",
@@ -372,7 +372,7 @@ export const requestRefund = async (
     }
 
     // Cáº­p nháº­t tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng vÃ  thÃ´ng tin hoÃ n tiá»n
-    order.status = "refund_requested";
+    order.status = ORDER_STATUS.REFUND_REQUESTED;
     order.refundInfo = {
       refundReason,
       refundDate: undefined,
@@ -415,7 +415,7 @@ export const approveRefund = async (
     }
 
     // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
-    if (order.status !== "refund_requested") {
+    if (order.status !== ORDER_STATUS.REFUND_REQUESTED) {
       throw new HttpError({
         title: "invalid_order_status",
         detail: "Chá»‰ cÃ³ thá»ƒ duyá»‡t Ä‘Æ¡n hÃ ng cÃ³ tráº¡ng thÃ¡i yÃªu cáº§u hoÃ n tiá»n",
@@ -548,7 +548,7 @@ export const rejectRefund = async (
     }
 
     // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
-    if (order.status !== "refund_requested") {
+    if (order.status !== ORDER_STATUS.REFUND_REQUESTED) {
       throw new HttpError({
         title: "invalid_order_status",
         detail: "Chá»‰ cÃ³ thá»ƒ tá»« chá»‘i Ä‘Æ¡n hÃ ng cÃ³ tráº¡ng thÃ¡i yÃªu cáº§u hoÃ n tiá»n",

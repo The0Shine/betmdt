@@ -4,6 +4,7 @@ import { StockVoucherService } from "./stockVoucher.service";
 import { TransactionService } from "./transaction.service";
 import type { IOrder, IOrderItem } from "../interfaces/order.interface";
 import { Types } from "mongoose";
+import { ORDER_STATUS, OrderStatusType } from "../constants";
 
 export class OrderService {
   /**
@@ -12,48 +13,87 @@ export class OrderService {
   static async createOrder(orderData: {
     user: string;
     orderItems: IOrderItem[];
-    shippingAddress: { address: string; city: string };
+    shippingAddress: { fullName: string; phone: string; provinceName: string; districtName: string; wardName: string; streetAddress: string; fullAddress: string };
     paymentMethod: string;
     totalPrice: number;
+    shippingAddressId?: string;
   }): Promise<IOrder> {
+    const alreadyDeducted: { product: string; quantity: number }[] = [];
     try {
-      // Kiểm tra tồn kho trước khi tạo đơn
+      // 🚀 Atomic Stock Deduction
       for (const item of orderData.orderItems) {
-        const product = await Product.findById(item.product);
+        const product = await Product.findOneAndUpdate(
+          {
+            _id: item.product,
+            quantity: { $gte: item.quantity }, // Ensure enough stock
+          },
+          {
+            $inc: { quantity: -item.quantity }, // Atomically deduct
+          },
+          { new: true }
+        );
+
         if (!product) {
-          throw new Error(`Không tìm thấy sản phẩm với ID: ${item.product}`);
-        }
-        if (product.quantity < item.quantity) {
           throw new Error(
-            `Không đủ tồn kho cho sản phẩm ${product.name}. Còn lại: ${product.quantity}`
+            `Không đủ tồn kho hoặc không tìm thấy sản phẩm ID: ${item.product}`
           );
         }
+
+        alreadyDeducted.push({
+          product: item.product.toString(),
+          quantity: item.quantity,
+        });
       }
 
       const order = await Order.create({
         user: orderData.user,
         orderItems: orderData.orderItems,
         shippingAddress: orderData.shippingAddress,
+        shippingAddressId: orderData.shippingAddressId,
         paymentMethod: orderData.paymentMethod,
         totalPrice: orderData.totalPrice,
-        status: "pending",
+        status: ORDER_STATUS.PENDING,
         isPaid: false,
       });
 
       console.log(`📝 Đã tạo đơn hàng: ${order._id}`);
       return order;
     } catch (error) {
+      // Rollback if Order.create fails after stock was deducted
+      if (alreadyDeducted.length > 0) {
+        await this.restoreStock(alreadyDeducted);
+      }
       console.error("❌ Lỗi tạo đơn hàng:", error);
       throw error;
     }
   }
 
   /**
+   * 🎯 HOÀN LẠI TỒN KHO (Helper)
+   */
+  private static async restoreStock(
+    items: { product: string; quantity: number }[]
+  ): Promise<void> {
+    const bulkOps = items.map((item) => ({
+      updateOne: {
+        filter: { _id: item.product },
+        update: { $inc: { quantity: item.quantity } },
+      },
+    }));
+
+    if (bulkOps.length > 0) {
+      await Product.bulkWrite(bulkOps);
+      console.log(`🔄 Đã hoàn lại tồn kho cho ${items.length} mặt hàng`);
+    }
+  }
+
+
+  /**
    * 🎯 CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG VÀ XỬ LÝ TỰ ĐỘNG
    */
   static async updateOrderStatus(
     orderId: string,
-    status: "pending" | "processing" | "cancelled" | "completed" | "refunded",
+    status: OrderStatusType,
     updatedBy: string
   ): Promise<IOrder> {
     try {
@@ -160,11 +200,11 @@ export class OrderService {
       }
 
       // Kiểm tra điều kiện hoàn tiền
-      if (order.status === "refunded") {
+      if (order.status === ORDER_STATUS.REFUNDED) {
         throw new Error("Đơn hàng đã được hoàn tiền trước đó");
       }
 
-      if (order.status === "cancelled") {
+      if (order.status === ORDER_STATUS.CANCELLED) {
         throw new Error("Không thể hoàn tiền đơn hàng đã hủy");
       }
 
@@ -175,7 +215,7 @@ export class OrderService {
       const mongoose = require("mongoose");
 
       // Cập nhật thông tin hoàn tiền
-      order.status = "refunded";
+      order.status = ORDER_STATUS.REFUNDED;
       order.refundInfo = {
         refundReason: refundData.refundReason,
         refundDate: new Date(),
@@ -246,8 +286,8 @@ export class OrderService {
     try {
       // Khi chuyển sang PROCESSING và đã thanh toán
       if (
-        newStatus === "processing" &&
-        oldStatus !== "processing" &&
+        newStatus === ORDER_STATUS.PROCESSING &&
+        oldStatus !== ORDER_STATUS.PROCESSING &&
         order.isPaid
       ) {
         await TransactionService.createFromOrderPayment(
@@ -260,7 +300,7 @@ export class OrderService {
       }
 
       // Khi chuyển sang COMPLETED
-      if (newStatus === "completed" && oldStatus !== "completed") {
+      if (newStatus === ORDER_STATUS.COMPLETED && oldStatus !== ORDER_STATUS.COMPLETED) {
         const orderItems = order.orderItems.map((item: any) => ({
           product: item.product._id || item.product,
           productName: item.product.name || item.name,
@@ -301,16 +341,27 @@ export class OrderService {
         throw new Error("Không tìm thấy đơn hàng");
       }
 
-      if (order.status === "completed") {
+      if (order.status === ORDER_STATUS.COMPLETED) {
         throw new Error("Không thể hủy đơn hàng đã hoàn thành");
       }
 
-      if (order.status === "refunded") {
+      if (order.status === ORDER_STATUS.REFUNDED) {
         throw new Error("Không thể hủy đơn hàng đã hoàn tiền");
       }
 
-      order.status = "cancelled";
+      if (order.status === ORDER_STATUS.CANCELLED) {
+        return order; // Already cancelled
+      }
+
+      order.status = ORDER_STATUS.CANCELLED;
       await order.save();
+
+      // 🔄 Restore stock immediately on cancellation
+      const itemsToRestore = order.orderItems.map((item) => ({
+        product: item.product.toString(),
+        quantity: item.quantity,
+      }));
+      await this.restoreStock(itemsToRestore);
 
       console.log(`❌ Đã hủy đơn hàng: ${orderId}`);
       return order;
@@ -319,6 +370,7 @@ export class OrderService {
       throw error;
     }
   }
+
 
   /**
    * 🎯 LẤY ĐƠN HÀNG THEO ID
