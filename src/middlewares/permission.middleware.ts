@@ -202,14 +202,11 @@ export const requireAdmin = async (
 
 // Utility functions
 export const isSuperAdmin = (user: IUserWithPopulatedRole): boolean => {
-  console.log("user role:", user);
   if (!user.role) return false;
   return user.role.permissions.includes("super.admin");
 };
 
 export const isAdmin = (user: IUserWithPopulatedRole): boolean => {
-  console.log("user role:", user);
-
   if (!user.role) return false;
   const permissions = user.role.permissions;
   return (

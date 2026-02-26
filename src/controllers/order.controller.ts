@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import { OrderService } from "../services/order.service";
 import Product from "../models/product.model";
@@ -6,8 +6,10 @@ import HttpError from "../utils/httpError";
 import { jsonOne, jsonAll } from "../utils/general";
 import Order from "../models/order.model";
 import { IOrderResponse, IRefundResponse } from "../interfaces/response/order.interface";
+import { ORDER_STATUS_VALUES } from "../constants";
+import { hasPermission, isAdmin } from "../middlewares/permission.middleware";
 
-// @desc    Tạo đơn hàng mới
+// @desc    Táº¡o Ä‘Æ¡n hÃ ng má»›i
 // @route   POST /api/orders
 // @access  Private
 export const createOrder = async (
@@ -19,11 +21,11 @@ export const createOrder = async (
     const userId = req.tokenPayload._id as string;
     const { orderItems, shippingAddress, paymentMethod, totalPrice } = req.body;
 
-    // Kiểm tra các trường bắt buộc
+    // Kiá»ƒm tra cÃ¡c trÆ°á»ng báº¯t buá»™c
     if (!orderItems || orderItems.length === 0) {
       throw new HttpError({
         title: "missing_items",
-        detail: "Không có sản phẩm nào trong đơn hàng",
+        detail: "KhÃ´ng cÃ³ sáº£n pháº©m nÃ o trong Ä‘Æ¡n hÃ ng",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -31,7 +33,7 @@ export const createOrder = async (
     if (!shippingAddress || !shippingAddress.address || !shippingAddress.city) {
       throw new HttpError({
         title: "missing_shipping",
-        detail: "Thông tin địa chỉ giao hàng không đầy đủ",
+        detail: "ThÃ´ng tin Ä‘á»‹a chá»‰ giao hÃ ng khÃ´ng Ä‘áº§y Ä‘á»§",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -39,7 +41,7 @@ export const createOrder = async (
     if (!paymentMethod) {
       throw new HttpError({
         title: "missing_payment",
-        detail: "Phương thức thanh toán là bắt buộc",
+        detail: "PhÆ°Æ¡ng thá»©c thanh toÃ¡n lÃ  báº¯t buá»™c",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -47,27 +49,32 @@ export const createOrder = async (
     if (!totalPrice || totalPrice <= 0) {
       throw new HttpError({
         title: "invalid_total",
-        detail: "Tổng tiền không hợp lệ",
+        detail: "Tá»•ng tiá»n khÃ´ng há»£p lá»‡",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Validate và enrich orderItems
+    // Batch load all products to avoid N+1 queries
+    const productIds = orderItems.map((item: { product: string }) => item.product);
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+    // Validate vÃ  enrich orderItems
     const enrichedOrderItems = [];
     for (const item of orderItems) {
       if (!item.product || !item.quantity || item.quantity <= 0) {
         throw new HttpError({
           title: "invalid_item",
-          detail: "Thông tin sản phẩm không hợp lệ",
+          detail: "ThÃ´ng tin sáº£n pháº©m khÃ´ng há»£p lá»‡",
           code: StatusCodes.BAD_REQUEST,
         });
       }
 
-      const product = await Product.findById(item.product);
+      const product = productMap.get(item.product);
       if (!product) {
         throw new HttpError({
           title: "product_not_found",
-          detail: `Không tìm thấy sản phẩm với id ${item.product}`,
+          detail: `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i id ${item.product}`,
           code: StatusCodes.NOT_FOUND,
         });
       }
@@ -76,11 +83,12 @@ export const createOrder = async (
         product: item.product,
         name: product.name,
         quantity: item.quantity,
-        price: item.price || product.price,
+        // SECURITY: Always use server price, never trust client
+        price: product.price,
       });
     }
 
-    // Tạo đơn hàng qua service
+    // Táº¡o Ä‘Æ¡n hÃ ng qua service
     const order = await OrderService.createOrder({
       user: userId,
       orderItems: enrichedOrderItems,
@@ -89,16 +97,16 @@ export const createOrder = async (
       totalPrice,
     });
 
-    // Lấy đơn hàng với đầy đủ thông tin
+    // Láº¥y Ä‘Æ¡n hÃ ng vá»›i Ä‘áº§y Ä‘á»§ thÃ´ng tin
     const createdOrder = await OrderService.getOrderById(order._id.toString());
 
-    jsonOne<IOrderResponse>(res, StatusCodes.CREATED, createdOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.CREATED, createdOrder);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy đơn hàng theo ID
+// @desc    Láº¥y Ä‘Æ¡n hÃ ng theo ID
 // @route   GET /api/orders/:id
 // @access  Private
 export const getOrderById = async (
@@ -122,18 +130,35 @@ export const getOrderById = async (
     if (!order) {
       throw new HttpError({
         title: "order_not_found",
-        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng vá»›i id ${orderId}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, order as any);
+    // SECURITY: Check ownership - user can only view their own orders
+    // OR user has orders.view_all permission (admin)
+    const userId = req.tokenPayload._id as string;
+    const orderUserId = typeof order.user === 'object' && order.user._id 
+      ? order.user._id.toString() 
+      : order.user.toString();
+    
+    const hasViewAllPermission = req.populatedUser && hasPermission(req.populatedUser, 'orders.view_all');
+    
+    if (orderUserId !== userId && !hasViewAllPermission) {
+      throw new HttpError({
+        title: "forbidden",
+        detail: "Bạn không có quyền xem đơn hàng này",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
+
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, order);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Cập nhật đơn hàng đã thanh toán
+// @desc    Cáº­p nháº­t Ä‘Æ¡n hÃ ng Ä‘Ã£ thanh toÃ¡n
 // @route   PUT /api/orders/:id/pay
 // @access  Private
 export const updateOrderToPaid = async (
@@ -166,13 +191,13 @@ export const updateOrderToPaid = async (
       userId
     );
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Cập nhật đơn hàng hoàn thành
+// @desc    Cáº­p nháº­t Ä‘Æ¡n hÃ ng hoÃ n thÃ nh
 // @route   PUT /api/orders/:id/complete
 // @access  Private/Admin
 export const updateOrderToCompleted = async (
@@ -190,13 +215,13 @@ export const updateOrderToCompleted = async (
       userId
     );
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy đơn hàng của người dùng hiện tại
+// @desc    Láº¥y Ä‘Æ¡n hÃ ng cá»§a ngÆ°á»i dÃ¹ng hiá»‡n táº¡i
 // @route   GET /api/orders/myorders
 // @access  Private
 export const getMyOrders = async (
@@ -209,13 +234,13 @@ export const getMyOrders = async (
 
     const orders = await OrderService.getUserOrders(userId);
 
-    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders as any);
+    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy tất cả đơn hàng
+// @desc    Láº¥y táº¥t cáº£ Ä‘Æ¡n hÃ ng
 // @route   GET /api/orders
 // @access  Private/Admin
 export const getOrders = async (
@@ -237,13 +262,13 @@ export const getOrders = async (
 
     const orders = await OrderService.getOrders(filter, options);
 
-    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders as any);
+    jsonAll<IOrderResponse>(res, StatusCodes.OK, orders);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Cập nhật trạng thái đơn hàng
+// @desc    Cáº­p nháº­t tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
 export const updateOrderStatus = async (
@@ -259,23 +284,17 @@ export const updateOrderStatus = async (
     if (!status) {
       throw new HttpError({
         title: "missing_fields",
-        detail: "Trạng thái đơn hàng là bắt buộc",
+        detail: "Tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng lÃ  báº¯t buá»™c",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Kiểm tra status hợp lệ
-    const validStatuses = [
-      "pending",
-      "processing",
-      "cancelled",
-      "completed",
-      "refunded",
-    ];
+    // Kiá»ƒm tra status há»£p lá»‡ - using centralized constants
+    const validStatuses = ORDER_STATUS_VALUES;
     if (!validStatuses.includes(status)) {
       throw new HttpError({
         title: "invalid_status",
-        detail: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(
+        detail: `Tráº¡ng thÃ¡i khÃ´ng há»£p lá»‡. Chá»‰ cháº¥p nháº­n: ${validStatuses.join(
           ", "
         )}`,
         code: StatusCodes.BAD_REQUEST,
@@ -288,15 +307,15 @@ export const updateOrderStatus = async (
       userId
     );
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder);
   } catch (error) {
     next(error);
   }
 };
 
-// Thêm hai endpoint mới sau updateOrderStatus
+// ThÃªm hai endpoint má»›i sau updateOrderStatus
 
-// @desc    Yêu cầu hoàn tiền đơn hàng
+// @desc    YÃªu cáº§u hoÃ n tiá»n Ä‘Æ¡n hÃ ng
 // @route   POST /api/orders/:id/request-refund
 // @access  Private
 export const requestRefund = async (
@@ -312,7 +331,7 @@ export const requestRefund = async (
     if (!refundReason) {
       throw new HttpError({
         title: "missing_refund_reason",
-        detail: "Lý do hoàn tiền là bắt buộc",
+        detail: "LÃ½ do hoÃ n tiá»n lÃ  báº¯t buá»™c",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -321,25 +340,25 @@ export const requestRefund = async (
     if (!order) {
       throw new HttpError({
         title: "order_not_found",
-        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng vá»›i id ${orderId}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    // Kiểm tra đơn hàng thuộc về người dùng hiện tại
+    // Kiá»ƒm tra Ä‘Æ¡n hÃ ng thuá»™c vá» ngÆ°á»i dÃ¹ng hiá»‡n táº¡i
     if (order.user.toString() !== userId) {
       throw new HttpError({
         title: "unauthorized",
-        detail: "Bạn không có quyền yêu cầu hoàn tiền đơn hàng này",
+        detail: "Báº¡n khÃ´ng cÃ³ quyá»n yÃªu cáº§u hoÃ n tiá»n Ä‘Æ¡n hÃ ng nÃ y",
         code: StatusCodes.FORBIDDEN,
       });
     }
 
-    // Kiểm tra trạng thái đơn hàng
+    // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
     if (order.status === "cancelled") {
       throw new HttpError({
         title: "invalid_order_status",
-        detail: "Không thể yêu cầu hoàn tiền đơn hàng đã hủy",
+        detail: "KhÃ´ng thá»ƒ yÃªu cáº§u hoÃ n tiá»n Ä‘Æ¡n hÃ ng Ä‘Ã£ há»§y",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -347,33 +366,33 @@ export const requestRefund = async (
     if (order.status === "refund_requested" || order.status === "refunded") {
       throw new HttpError({
         title: "invalid_order_status",
-        detail: "Đơn hàng đã có yêu cầu hoàn tiền hoặc đã được hoàn tiền",
+        detail: "ÄÆ¡n hÃ ng Ä‘Ã£ cÃ³ yÃªu cáº§u hoÃ n tiá»n hoáº·c Ä‘Ã£ Ä‘Æ°á»£c hoÃ n tiá»n",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Cập nhật trạng thái đơn hàng và thông tin hoàn tiền
+    // Cáº­p nháº­t tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng vÃ  thÃ´ng tin hoÃ n tiá»n
     order.status = "refund_requested";
     order.refundInfo = {
       refundReason,
       refundDate: undefined,
       refundTransactionId: undefined,
-      notes: `Yêu cầu hoàn tiền bởi khách hàng vào ${new Date().toISOString()}`,
+      notes: `YÃªu cáº§u hoÃ n tiá»n bá»Ÿi khÃ¡ch hÃ ng vÃ o ${new Date().toISOString()}`,
     };
 
     await order.save();
 
     jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
-      message: "Yêu cầu hoàn tiền đã được gửi",
-      order: order as any,
+      message: "YÃªu cáº§u hoÃ n tiá»n Ä‘Ã£ Ä‘Æ°á»£c gá»­i",
+      order: order,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Duyệt yêu cầu hoàn tiền
+// @desc    Duyá»‡t yÃªu cáº§u hoÃ n tiá»n
 // @route   PUT /api/orders/:id/approve-refund
 // @access  Private/Admin
 export const approveRefund = async (
@@ -390,16 +409,16 @@ export const approveRefund = async (
     if (!order) {
       throw new HttpError({
         title: "order_not_found",
-        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng vá»›i id ${orderId}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    // Kiểm tra trạng thái đơn hàng
+    // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
     if (order.status !== "refund_requested") {
       throw new HttpError({
         title: "invalid_order_status",
-        detail: "Chỉ có thể duyệt đơn hàng có trạng thái yêu cầu hoàn tiền",
+        detail: "Chá»‰ cÃ³ thá»ƒ duyá»‡t Ä‘Æ¡n hÃ ng cÃ³ tráº¡ng thÃ¡i yÃªu cáº§u hoÃ n tiá»n",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -407,29 +426,29 @@ export const approveRefund = async (
     if (!order.isPaid) {
       throw new HttpError({
         title: "order_not_paid",
-        detail: "Không thể hoàn tiền đơn hàng chưa thanh toán",
+        detail: "KhÃ´ng thá»ƒ hoÃ n tiá»n Ä‘Æ¡n hÃ ng chÆ°a thanh toÃ¡n",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Thực hiện hoàn tiền
+    // Thá»±c hiá»‡n hoÃ n tiá»n
     const refundedOrder = await OrderService.refundOrder(orderId, {
-      refundReason: order.refundInfo?.refundReason || "Hoàn tiền theo yêu cầu",
-      notes: notes || "Yêu cầu hoàn tiền được duyệt bởi admin",
+      refundReason: order.refundInfo?.refundReason || "HoÃ n tiá»n theo yÃªu cáº§u",
+      notes: notes || "YÃªu cáº§u hoÃ n tiá»n Ä‘Æ°á»£c duyá»‡t bá»Ÿi admin",
       createImportVoucher,
     });
 
     jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
-      message: "Đã duyệt yêu cầu hoàn tiền",
-      order: refundedOrder as any,
+      message: "ÄÃ£ duyá»‡t yÃªu cáº§u hoÃ n tiá»n",
+      order: refundedOrder,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Hủy đơn hàng
+// @desc    Há»§y Ä‘Æ¡n hÃ ng
 // @route   PUT /api/orders/:id/cancel
 // @access  Private
 export const cancelOrder = async (
@@ -439,16 +458,38 @@ export const cancelOrder = async (
 ) => {
   try {
     const orderId = req.params.id;
+    const userId = req.tokenPayload._id as string;
+
+    // SECURITY: Check ownership - user can only cancel their own orders
+    const order = await Order.findById(orderId);
+    if (!order) {
+      throw new HttpError({
+        title: "order_not_found",
+        detail: "Không tìm thấy đơn hàng",
+        code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    const orderUserId = order.user.toString();
+    const hasAdminPermission = req.populatedUser && isAdmin(req.populatedUser);
+
+    if (orderUserId !== userId && !hasAdminPermission) {
+      throw new HttpError({
+        title: "forbidden",
+        detail: "Bạn không có quyền hủy đơn hàng này",
+        code: StatusCodes.FORBIDDEN,
+      });
+    }
 
     const updatedOrder = await OrderService.cancelOrder(orderId);
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, updatedOrder);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Hoàn tiền đơn hàng
+// @desc    HoÃ n tiá»n Ä‘Æ¡n hÃ ng
 // @route   POST /api/orders/:id/refund
 // @access  Private/Admin
 export const refundOrder = async (
@@ -461,12 +502,12 @@ export const refundOrder = async (
     const userId = req.tokenPayload._id as string;
     const { refundReason, notes, createImportVoucher = true } = req.body;
 
-    // Kiểm tra các trường bắt buộc
+    // Kiá»ƒm tra cÃ¡c trÆ°á»ng báº¯t buá»™c
 
     if (!refundReason) {
       throw new HttpError({
         title: "missing_refund_reason",
-        detail: "Lý do hoàn tiền là bắt buộc",
+        detail: "LÃ½ do hoÃ n tiá»n lÃ  báº¯t buá»™c",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -477,14 +518,14 @@ export const refundOrder = async (
       createImportVoucher,
     });
 
-    jsonOne<IOrderResponse>(res, StatusCodes.OK, refundedOrder as any);
+    jsonOne<IOrderResponse>(res, StatusCodes.OK, refundedOrder);
   } catch (error) {
     next(error);
   }
 };
 
 // Legacy function - kept for backward compatibility
-// @desc    Cập nhật đơn hàng đã giao (alias for complete)
+// @desc    Cáº­p nháº­t Ä‘Æ¡n hÃ ng Ä‘Ã£ giao (alias for complete)
 // @route   PUT /api/orders/:id/deliver
 // @access  Private/Admin
 export const rejectRefund = async (
@@ -501,22 +542,22 @@ export const rejectRefund = async (
     if (!order) {
       throw new HttpError({
         title: "order_not_found",
-        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng vá»›i id ${orderId}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    // Kiểm tra trạng thái đơn hàng
+    // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng
     if (order.status !== "refund_requested") {
       throw new HttpError({
         title: "invalid_order_status",
-        detail: "Chỉ có thể từ chối đơn hàng có trạng thái yêu cầu hoàn tiền",
+        detail: "Chá»‰ cÃ³ thá»ƒ tá»« chá»‘i Ä‘Æ¡n hÃ ng cÃ³ tráº¡ng thÃ¡i yÃªu cáº§u hoÃ n tiá»n",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Cập nhật trạng thái về "processing" hoặc trạng thái trước đó tùy vào logic hệ thống
-    order.status = "completed"; // Hoặc "processing" nếu cần
+    // Cáº­p nháº­t tráº¡ng thÃ¡i vá» "processing" hoáº·c tráº¡ng thÃ¡i trÆ°á»›c Ä‘Ã³ tÃ¹y vÃ o logic há»‡ thá»‘ng
+    order.status = "completed"; // Hoáº·c "processing" náº¿u cáº§n
     order.refundInfo = {
       ...order.refundInfo,
     };
@@ -525,8 +566,8 @@ export const rejectRefund = async (
 
     jsonOne<IRefundResponse>(res, StatusCodes.OK, {
       success: true,
-      message: "Đã từ chối yêu cầu hoàn tiền",
-      order: order as any,
+      message: "ÄÃ£ tá»« chá»‘i yÃªu cáº§u hoÃ n tiá»n",
+      order: order,
     });
   } catch (error) {
     next(error);

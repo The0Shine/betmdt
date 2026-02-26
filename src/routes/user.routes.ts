@@ -35,7 +35,7 @@ router
 router
   .route("/:id")
   .get(auth, loadUser, requirePermission("users.view"), getUserById)
-  .put(auth, updateUser)
+  .put(auth, loadUser, requirePermission("users.edit"), updateUser)
   .delete(auth, loadUser, requirePermission("users.delete"), deleteUser);
 router
   .route("/:id/reset-password")

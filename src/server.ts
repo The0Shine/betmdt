@@ -7,6 +7,8 @@ import { StatusCodes } from "http-status-codes";
 import HttpError from "./utils/httpError";
 import { errorLogMiddleware } from "./middlewares/errorLogMiddleware";
 
+import { initElasticsearch } from "./config/elasticsearch";
+
 const app = express();
 
 // Middlewares
@@ -41,6 +43,9 @@ const startServer = async () => {
   try {
     await mongoose.connect(env.MONGODB_URI);
     console.log("✅ MongoDB connected");
+
+    // Initialize Elasticsearch (non-blocking, app works without it)
+    initElasticsearch().catch(() => {});
 
     app.listen(env.PORT, () => {
       console.log(`🚀 Server is running at http://localhost:${env.PORT}`);

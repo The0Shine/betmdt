@@ -8,17 +8,17 @@
     "declaration": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "removeComments": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "pretty": true,
     "experimentalDecorators": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "strict": false,
     "skipLibCheck": true
   },
   "files": ["src/type.d.ts"],
-  "include": ["src/**/*.ts", "src/**/*.js"],
+  "include": ["src/**/*.ts", "src/**/*.js", "__tests__/**/*.ts"],
   "exclude": ["node_modules"]
 }

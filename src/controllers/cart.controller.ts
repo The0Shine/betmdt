@@ -5,6 +5,8 @@ import Product from "../models/product.model";
 import { StatusCodes } from "http-status-codes";
 import HttpError from "../utils/httpError";
 import { jsonOne } from "../utils/general";
+import { ICartResponse } from "../interfaces/response/cart.interface";
+import { IMessageResponse } from "../interfaces/response/response.interface";
 
 // Hàm tính tổng giá trị giỏ hàng
 const calculateTotalPrice = async (cartItemIds: string[]): Promise<number> => {
@@ -167,7 +169,6 @@ export const updateCartItemQuantity = async (
   try {
     const userId = req.tokenPayload._id;
     const itemId = req.params.itemId;
-    console.log(itemId);
 
     const { quantity } = req.body;
 
@@ -188,6 +189,18 @@ export const updateCartItemQuantity = async (
         title: "cart_not_found",
         detail: "Cart not found",
         code: StatusCodes.NOT_FOUND,
+      });
+    }
+
+    // SECURITY: Verify cart item belongs to user's cart before update
+    const itemBelongsToCart = cart.items.some(
+      (id) => id.toString() === itemId
+    );
+    if (!itemBelongsToCart) {
+      throw new HttpError({
+        title: "item_not_in_cart",
+        detail: "Cart item does not belong to your cart",
+        code: StatusCodes.FORBIDDEN,
       });
     }
 
@@ -330,7 +343,7 @@ export const clearCart = async (
       { new: true }
     );
 
-    jsonOne(res, StatusCodes.OK, { message: "Cart cleared successfully" });
+    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Cart cleared successfully" });
   } catch (error) {
     next(error);
   }

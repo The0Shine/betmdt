@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import Product from "../models/product.model";
 import { asyncHandler } from "../middlewares/async.middleware";
@@ -7,13 +7,14 @@ import { jsonOne, jsonAll } from "../utils/general";
 import { IProductPublicResponse, IProductAdminResponse } from "../interfaces/response/product.interface";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
 import categoryModel from "../models/category.model";
+import { SearchService } from "../services/search.service";
 
-// @desc    Lấy tất cả sản phẩm
+// @desc    Láº¥y táº¥t cáº£ sáº£n pháº©m
 // @route   GET /api/products
 // @access  Public
 export const getProducts = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    // Các bộ lọc không liên quan đến phân trang
+    // CÃ¡c bá»™ lá»c khÃ´ng liÃªn quan Ä‘áº¿n phÃ¢n trang
     const filter: any = {};
 
     if (req.query.category) filter.category = req.query.category;
@@ -31,14 +32,14 @@ export const getProducts = asyncHandler(
       if (req.query.maxPrice) filter.price.$lte = Number(req.query.maxPrice);
     }
 
-    // Lấy các tùy chọn phân trang và tìm kiếm từ helper
+    // Láº¥y cÃ¡c tÃ¹y chá»n phÃ¢n trang vÃ  tÃ¬m kiáº¿m tá»« helper
     const { page, limit, search } = createPageOptions(req);
-    // Tạo điều kiện tìm kiếm (sẽ tìm trong tất cả các trường kiểu String theo cấu trúc model)
+    // Táº¡o Ä‘iá»u kiá»‡n tÃ¬m kiáº¿m (sáº½ tÃ¬m trong táº¥t cáº£ cÃ¡c trÆ°á»ng kiá»ƒu String theo cáº¥u trÃºc model)
     Object.assign(filter, createSearchCondition(search, Product));
 
     const skip = (page - 1) * limit;
 
-    // Xử lý tùy chọn sắp xếp
+    // Xá»­ lÃ½ tÃ¹y chá»n sáº¯p xáº¿p
     let sort: any = { createdAt: -1 };
     if (req.query.sort) {
       const [field, order] = (req.query.sort as string).split(",");
@@ -61,12 +62,12 @@ export const getProducts = asyncHandler(
       },
     };
 
-    return jsonAll<IProductPublicResponse>(res, StatusCodes.OK, products as any, meta);
+    return jsonAll<IProductPublicResponse>(res, StatusCodes.OK, products, meta);
   }
 );
 export const getProductsAdmin = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
-    // Các bộ lọc không liên quan đến phân trang
+    // CÃ¡c bá»™ lá»c khÃ´ng liÃªn quan Ä‘áº¿n phÃ¢n trang
     const filter: any = {};
 
     if (req.query.category) filter.category = req.query.category;
@@ -84,14 +85,14 @@ export const getProductsAdmin = asyncHandler(
       if (req.query.maxPrice) filter.price.$lte = Number(req.query.maxPrice);
     }
 
-    // Lấy các tùy chọn phân trang và tìm kiếm từ helper
+    // Láº¥y cÃ¡c tÃ¹y chá»n phÃ¢n trang vÃ  tÃ¬m kiáº¿m tá»« helper
     const { page, limit, search } = createPageOptions(req);
-    // Tạo điều kiện tìm kiếm (sẽ tìm trong tất cả các trường kiểu String theo cấu trúc model)
+    // Táº¡o Ä‘iá»u kiá»‡n tÃ¬m kiáº¿m (sáº½ tÃ¬m trong táº¥t cáº£ cÃ¡c trÆ°á»ng kiá»ƒu String theo cáº¥u trÃºc model)
     Object.assign(filter, createSearchCondition(search, Product));
 
     const skip = (page - 1) * limit;
 
-    // Xử lý tùy chọn sắp xếp
+    // Xá»­ lÃ½ tÃ¹y chá»n sáº¯p xáº¿p
     let sort: any = { createdAt: -1 };
     if (req.query.sort) {
       const [field, order] = (req.query.sort as string).split(",");
@@ -114,11 +115,11 @@ export const getProductsAdmin = asyncHandler(
       },
     };
 
-    return jsonAll<IProductAdminResponse>(res, StatusCodes.OK, products as any, meta);
+    return jsonAll<IProductAdminResponse>(res, StatusCodes.OK, products, meta);
   }
 );
 
-// @desc    Lấy sản phẩm theo ID
+// @desc    Láº¥y sáº£n pháº©m theo ID
 // @route   GET /api/products/:id
 // @access  Public
 export const getProductById = asyncHandler(
@@ -128,17 +129,17 @@ export const getProductById = asyncHandler(
     if (!product) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy sản phẩm với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
     }
 
-    return jsonOne<IProductPublicResponse>(res, StatusCodes.OK, product as any);
+    return jsonOne<IProductPublicResponse>(res, StatusCodes.OK, product);
   }
 );
 
-// @desc    Tạo sản phẩm mới
+// @desc    Táº¡o sáº£n pháº©m má»›i
 // @route   POST /api/products
 // @access  Private/Admin
 export const createProduct = asyncHandler(
@@ -173,11 +174,15 @@ export const createProduct = asyncHandler(
       costPrice,
     });
     const populatedProduct = await Product.findById(product._id).populate("category", "_id name");
-    return jsonOne<IProductAdminResponse>(res, StatusCodes.CREATED, populatedProduct as any);
+
+    // Sync to Elasticsearch (fire-and-forget)
+    SearchService.indexProduct(populatedProduct).catch(() => {});
+
+    return jsonOne<IProductAdminResponse>(res, StatusCodes.CREATED, populatedProduct);
   }
 );
 
-// @desc    Cập nhật sản phẩm
+// @desc    Cáº­p nháº­t sáº£n pháº©m
 // @route   PUT /api/products/:id
 // @access  Private/Admin
 export const updateProduct = asyncHandler(
@@ -187,7 +192,7 @@ export const updateProduct = asyncHandler(
     if (!product) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy sản phẩm với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
@@ -204,11 +209,15 @@ export const updateProduct = asyncHandler(
     });
 
     const populatedProduct = await Product.findById(product?._id).populate("category", "_id name");
-    return jsonOne<IProductAdminResponse>(res, StatusCodes.OK, populatedProduct as any);
+
+    // Sync to Elasticsearch (fire-and-forget)
+    SearchService.indexProduct(populatedProduct).catch(() => {});
+
+    return jsonOne<IProductAdminResponse>(res, StatusCodes.OK, populatedProduct);
   }
 );
 
-// @desc    Xóa sản phẩm
+// @desc    XÃ³a sáº£n pháº©m
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 export const deleteProduct = asyncHandler(
@@ -218,13 +227,17 @@ export const deleteProduct = asyncHandler(
     if (!product) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy sản phẩm với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
     }
 
     await product.deleteOne();
-    return jsonOne(res, StatusCodes.OK, { message: "Đã xóa sản phẩm" });
+
+    // Remove from Elasticsearch (fire-and-forget)
+    SearchService.removeProduct(req.params.id).catch(() => {});
+
+    return jsonOne(res, StatusCodes.OK, { message: "ÄÃ£ xÃ³a sáº£n pháº©m" });
   }
 );

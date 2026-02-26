@@ -1,15 +1,11 @@
 import type { Document, Types } from "mongoose";
+import type { IShippingAddressSnapshot } from "./address.interface";
 
 export interface IOrderItem {
   product: Types.ObjectId;
   name: string;
   quantity: number;
   price: number;
-}
-
-export interface IShippingAddress {
-  address: string;
-  city: string;
 }
 
 export interface IPaymentResult {
@@ -31,7 +27,11 @@ export interface IOrder extends Document {
   orderItems: IOrderItem[];
   paymentMethod: string;
   paymentResult?: IPaymentResult;
-  shippingAddress: IShippingAddress;
+  
+  // Address: store snapshot for history preservation
+  shippingAddressId?: Types.ObjectId;  // Reference to original address
+  shippingAddress: IShippingAddressSnapshot;  // Snapshot at order time
+  
   totalPrice: number;
   isPaid: boolean;
   paidAt?: Date;
@@ -46,3 +46,6 @@ export interface IOrder extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// For backward compatibility - alias
+export type IShippingAddress = IShippingAddressSnapshot;

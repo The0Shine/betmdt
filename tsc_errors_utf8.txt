@@ -1,0 +1,82 @@
+﻿[96msrc/controllers/transaction.controller.ts[0m:[93m198[0m:[93m7[0m - [91merror[0m[90m TS2322: [0mType '(Document<unknown, {}, ITransaction, {}> & ITransaction & Required<{ _id: ObjectId; }> & { __v: number; })[]' is not assignable to type 'ITransactionResponse[]'.
+  Type 'Document<unknown, {}, ITransaction, {}> & ITransaction & Required<{ _id: ObjectId; }> & { __v: number; }' is not assignable to type 'ITransactionResponse'.
+    Types of property 'createdBy' are incompatible.
+      Type 'ObjectId' is not assignable to type 'string | { name: string; email: string; }'.
+
+[7m198[0m       recentTransactions: recentTransactions,
+[7m   [0m [91m      ~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m74[0m:[93m26[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m74[0m         canDelete: role?.name !== "Super Admin", // Kh├â┬┤ng th├í┬╗ãÆ x├â┬│a Super Admin
+[7m  [0m [91m                         ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m75[0m:[93m24[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m75[0m         canEdit: role?.name !== "Super Admin", // Kh├â┬┤ng th├í┬╗ãÆ s├í┬╗┬¡a Super Admin
+[7m  [0m [91m                       ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m89[0m:[93m49[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ward?: string; ... 21 more ...; __v: number; }[]' is not assignable to parameter of type '(Document<unknown, any, any, Record<string, any>> | IUserResponse)[]'.
+  Type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ... 22 more ...; __v: number; }' is not assignable to type 'Document<unknown, any, any, Record<string, any>> | IUserResponse'.
+    Type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ward?: string; ... 21 more ...; __v: number; }' is missing the following properties from type 'IUserResponse': $assertPopulated, $clearModifiedPaths, $clone, $createModifiedPathsSnapshot, and 43 more.
+
+[7m89[0m     jsonAll<IUserResponse>(res, StatusCodes.OK, usersWithPermissions, meta);
+[7m  [0m [91m                                                ~~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m122[0m:[93m24[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m122[0m       canDelete: role?.name !== "Super Admin",
+[7m   [0m [91m                       ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m123[0m:[93m22[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m123[0m       canEdit: role?.name !== "Super Admin",
+[7m   [0m [91m                     ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m126[0m:[93m49[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ... 22 more ...; __v: number; }' is not assignable to parameter of type 'Document<unknown, any, any, Record<string, any>> | IUserResponse'.
+  Type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ward?: string; ... 21 more ...; __v: number; }' is missing the following properties from type 'IUserResponse': $assertPopulated, $clearModifiedPaths, $clone, $createModifiedPathsSnapshot, and 43 more.
+
+[7m126[0m     jsonOne<IUserResponse>(res, StatusCodes.OK, userWithPermissions);
+[7m   [0m [91m                                                ~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m184[0m:[93m19[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m184[0m     if (userRole?.name === "Super Admin") {
+[7m   [0m [91m                  ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m248[0m:[93m31[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m248[0m       canDelete: updatedRole?.name !== "Super Admin",
+[7m   [0m [91m                              ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m249[0m:[93m29[0m - [91merror[0m[90m TS2339: [0mProperty 'name' does not exist on type 'ObjectId'.
+
+[7m249[0m       canEdit: updatedRole?.name !== "Super Admin",
+[7m   [0m [91m                            ~~~~[0m
+
+[96msrc/controllers/user.controller.ts[0m:[93m252[0m:[93m49[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ... 22 more ...; __v: number; }' is not assignable to parameter of type 'Document<unknown, any, any, Record<string, any>> | IUserResponse'.
+  Type '{ canDelete: boolean; canEdit: boolean; firstName: string; lastName: string; email: string; password: string; avatar?: string; phone?: string; address?: string; city?: string; district?: string; ward?: string; ... 21 more ...; __v: number; }' is missing the following properties from type 'IUserResponse': $assertPopulated, $clearModifiedPaths, $clone, $createModifiedPathsSnapshot, and 43 more.
+
+[7m252[0m     jsonOne<IUserResponse>(res, StatusCodes.OK, userWithPermissions);
+[7m   [0m [91m                                                ~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/routes/address.route.ts[0m:[93m19[0m:[93m24[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(req: Request, res: Response, next: NextFunction) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+      Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>, next: NextFunction) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+
+[7m19[0m router.get("/default", getDefaultAddress);
+[7m  [0m [91m                       ~~~~~~~~~~~~~~~~~[0m
+
+  [96mnode_modules/@types/express-serve-static-core/index.d.ts[0m:[93m168[0m:[93m5[0m
+    [7m168[0m     (path: PathParams, subApplication: Application): T;
+    [7m   [0m [96m    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    The last overload is declared here.
+
+
+Found 12 errors in 3 files.
+
+Errors  Files
+     1  src/controllers/transaction.controller.ts[90m:198[0m
+    10  src/controllers/user.controller.ts[90m:74[0m
+     1  src/routes/address.route.ts[90m:19[0m

@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import type { ParamsDictionary } from "express-serve-static-core";
 import { StatusCodes } from "http-status-codes";
 import User from "../models/user.model";
@@ -20,7 +20,6 @@ import HttpError from "../utils/httpError";
 import Role from "../models/role.model";
 import mongoose, { Types } from "mongoose";
 import { token } from "morgan";
-import { log } from "console";
 import { hashPassword } from "../utils/crypto";
 import { IRefreshReqBody } from "../interfaces/request/users.interface";
 // @desc    Obtener todos los usuarios
@@ -65,15 +64,15 @@ export const getUsers = async (
       User.countDocuments(filter),
     ]);
 
-    // Thêm thông tin canDelete và canEdit
+    // ThÃªm thÃ´ng tin canDelete vÃ  canEdit
     const usersWithPermissions = users.map((user) => {
       const userObj = user.toObject();
       const role = userObj.role as any;
 
       return {
         ...userObj,
-        canDelete: role?.name !== "Super Admin", // Không thể xóa Super Admin
-        canEdit: role?.name !== "Super Admin", // Không thể sửa Super Admin
+        canDelete: role?.name !== "Super Admin", // KhÃ´ng thá»ƒ xÃ³a Super Admin
+        canEdit: role?.name !== "Super Admin", // KhÃ´ng thá»ƒ sá»­a Super Admin
       };
     });
 
@@ -110,7 +109,7 @@ export const getUserById = async (
     if (!user) {
       throw new HttpError({
         title: "user_not_found",
-        detail: "Không tìm thấy người dùng",
+        detail: "KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng",
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -139,7 +138,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
   if (!password || password.length < 6) {
     throw new HttpError({
       title: "invalid_password",
-      detail: "Mật khẩu phải có ít nhất 6 ký tự",
+      detail: "Máº­t kháº©u pháº£i cÃ³ Ã­t nháº¥t 6 kÃ½ tá»±",
       code: StatusCodes.BAD_REQUEST,
     });
   }
@@ -155,7 +154,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
   // Here we return simpler object or re-fetch if needed. For now casting.
   const userObj = user.toObject();
   delete userObj.role;
-  return jsonOne<IUserResponse>(res, StatusCodes.CREATED, userObj as any);
+  return jsonOne<IUserResponse>(res, StatusCodes.CREATED, userObj);
 });
 
 // @desc    Actualizar un usuario
@@ -175,49 +174,49 @@ export const updateUser = async (
     if (!user) {
       throw new HttpError({
         title: "user_not_found",
-        detail: "Không tìm thấy người dùng",
+        detail: "KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng",
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    // Không cho phép sửa Super Admin (trừ khi người sửa cũng là Super Admin)
+    // KhÃ´ng cho phÃ©p sá»­a Super Admin (trá»« khi ngÆ°á»i sá»­a cÅ©ng lÃ  Super Admin)
     const userRole = user.role as any;
     if (userRole?.name === "Super Admin") {
       throw new HttpError({
         title: "cannot_edit_super_admin",
-        detail: "Không thể chỉnh sửa tài khoản Super Admin",
+        detail: "KhÃ´ng thá»ƒ chá»‰nh sá»­a tÃ i khoáº£n Super Admin",
         code: StatusCodes.FORBIDDEN,
       });
     }
 
-    // Kiểm tra email đã tồn tại (ngoại trừ user hiện tại)
+    // Kiá»ƒm tra email Ä‘Ã£ tá»“n táº¡i (ngoáº¡i trá»« user hiá»‡n táº¡i)
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ email, _id: { $ne: id } });
       if (existingUser) {
         throw new HttpError({
           title: "email_exists",
-          detail: "Email đã tồn tại",
+          detail: "Email Ä‘Ã£ tá»“n táº¡i",
           code: StatusCodes.BAD_REQUEST,
         });
       }
     }
 
-    // Kiểm tra role tồn tại
+    // Kiá»ƒm tra role tá»“n táº¡i
     if (role) {
       const roleExists = await Role.findById(role);
       if (!roleExists) {
         throw new HttpError({
           title: "role_not_found",
-          detail: "Vai trò không tồn tại",
+          detail: "Vai trÃ² khÃ´ng tá»“n táº¡i",
           code: StatusCodes.BAD_REQUEST,
         });
       }
 
-      // Không cho phép gán role Super Admin (trừ khi người gán là Super Admin)
+      // KhÃ´ng cho phÃ©p gÃ¡n role Super Admin (trá»« khi ngÆ°á»i gÃ¡n lÃ  Super Admin)
       if (roleExists.name === "Super Admin") {
         throw new HttpError({
           title: "cannot_assign_super_admin",
-          detail: "Chỉ Super Admin mới có quyền này",
+          detail: "Chá»‰ Super Admin má»›i cÃ³ quyá»n nÃ y",
           code: StatusCodes.FORBIDDEN,
         });
       }
@@ -292,9 +291,9 @@ export const refreshController = async (
       });
     }
 
-    const oldRTPayload = await decodeRefreshToken(rt); // Giải mã refresh token
+    const oldRTPayload = await decodeRefreshToken(rt); // Giáº£i mÃ£ refresh token
 
-    // Nếu decode thành công thì sinh token mới
+    // Náº¿u decode thÃ nh cÃ´ng thÃ¬ sinh token má»›i
     const [accessToken, refreshToken] = await Promise.all([
       signAccessToken({
         _id: oldRTPayload._id,
@@ -343,7 +342,7 @@ export const getWishlist = async (
   }
 };
 
-// POST /wishlist/:productId - Thêm sản phẩm vào wishlist
+// POST /wishlist/:productId - ThÃªm sáº£n pháº©m vÃ o wishlist
 export const addToWishlist = async (
   req: Request,
   res: Response,
@@ -353,7 +352,7 @@ export const addToWishlist = async (
     const userId = req.tokenPayload._id;
     const productId = req.params.productId;
 
-    // Kiểm tra productId hợp lệ
+    // Kiá»ƒm tra productId há»£p lá»‡
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       throw new HttpError({
         title: "Product",
@@ -371,10 +370,10 @@ export const addToWishlist = async (
       });
     }
 
-    // Chuyển productId về ObjectId
+    // Chuyá»ƒn productId vá» ObjectId
     const productObjectId = new Types.ObjectId(productId);
 
-    // Kiểm tra trùng lặp
+    // Kiá»ƒm tra trÃ¹ng láº·p
     const alreadyExists = user.wishlist?.some((id) =>
       id.equals(productObjectId)
     );
@@ -390,7 +389,7 @@ export const addToWishlist = async (
   }
 };
 
-// DELETE /wishlist/:productId - Xóa sản phẩm khỏi wishlist
+// DELETE /wishlist/:productId - XÃ³a sáº£n pháº©m khá»i wishlist
 export const removeFromWishlist = async (
   req: Request,
   res: Response,
@@ -417,7 +416,7 @@ export const removeFromWishlist = async (
   }
 };
 
-// DELETE /wishlist - Xóa toàn bộ wishlist
+// DELETE /wishlist - XÃ³a toÃ n bá»™ wishlist
 // export const clearWishlist = async (
 //   req: Request,
 //   res: Response,
@@ -451,19 +450,19 @@ export const resetPassword = async (
     const { id } = req.params;
     const { newPassword } = req.body;
     const userId = req.tokenPayload._id;
-    // Kiểm tra mật khẩu mới và xác nhận mật khẩu
+    // Kiá»ƒm tra máº­t kháº©u má»›i vÃ  xÃ¡c nháº­n máº­t kháº©u
 
     const user = await User.findById(id);
     if (!user) {
       throw new HttpError({
         title: "user_not_found",
-        detail: "Không tìm thấy người dùng",
+        detail: "KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng",
         code: StatusCodes.NOT_FOUND,
       });
     }
     const userreq = await User.findById(userId);
     const userreqRole = await Role.findById(userreq.role);
-    // Kiểm tra quyền: Chỉ Super Admin mới có thể reset mật khẩu của Super Admin khác
+    // Kiá»ƒm tra quyá»n: Chá»‰ Super Admin má»›i cÃ³ thá»ƒ reset máº­t kháº©u cá»§a Super Admin khÃ¡c
     const userRole = await Role.findById(user.role);
     if (
       userRole?.name === "Super Admin" &&
@@ -471,15 +470,15 @@ export const resetPassword = async (
     ) {
       throw new HttpError({
         title: "permission_denied",
-        detail: "Bạn không có quyền đặt lại mật khẩu cho người dùng này",
+        detail: "Báº¡n khÃ´ng cÃ³ quyá»n Ä‘áº·t láº¡i máº­t kháº©u cho ngÆ°á»i dÃ¹ng nÃ y",
         code: StatusCodes.FORBIDDEN,
       });
     }
     user.password = await hashPassword(newPassword);
 
     await user.save();
-    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Đặt lại mật khẩu thành công" });
-    // Mã hóa mật khẩu mới
+    jsonOne<IMessageResponse>(res, StatusCodes.OK, { message: "Äáº·t láº¡i máº­t kháº©u thÃ nh cÃ´ng" });
+    // MÃ£ hÃ³a máº­t kháº©u má»›i
   } catch (error) {
     next(error);
   }

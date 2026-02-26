@@ -6,6 +6,7 @@ import type {
   CreateTransactionData,
 } from "../interfaces/transaction.interface";
 import type { Types } from "mongoose";
+import { IPopulatedUser } from "../interfaces/user.interface";
 
 export class TransactionService {
   /**
@@ -28,7 +29,7 @@ export class TransactionService {
       }
 
       // Type assertion for populated user
-      const populatedUser = order.user as any;
+      const populatedUser = order.user as IPopulatedUser;
       const customerName = populatedUser
         ? `${populatedUser.firstName || ""} ${
             populatedUser.lastName || ""
@@ -83,7 +84,7 @@ export class TransactionService {
       }
 
       // Type assertion for populated user
-      const populatedUser = order.user as any;
+      const populatedUser = order.user as IPopulatedUser;
       const customerName = populatedUser
         ? `${populatedUser.firstName || ""} ${
             populatedUser.lastName || ""

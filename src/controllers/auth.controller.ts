@@ -176,8 +176,8 @@ export const updateDetails = asyncHandler(
       avatar: req.body.avatar,
     };
 
-    // @ts-ignore
-    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+    const userId = req.tokenPayload._id;
+    const user = await User.findByIdAndUpdate(userId, fieldsToUpdate, {
       new: true,
       runValidators: true,
     });
@@ -200,7 +200,6 @@ export const changePassword = asyncHandler(
       });
     }
 
-    // @ts-ignore: req.user sẽ được middleware xác thực gán vào
     const user = await User.findById(userId);
     if (!user) {
       throw new HttpError({

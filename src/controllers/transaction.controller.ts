@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import Transaction from "../models/transaction.model";
 import { TransactionService } from "../services/transaction.service";
@@ -8,7 +8,7 @@ import { createPageOptions } from "../utils/pagination";
 import mongoose from "mongoose";
 import { ITransactionResponse, ITransactionStatsResponse } from "../interfaces/response/transaction.interface";
 
-// @desc    Lấy danh sách giao dịch (CHỈ XEM - KHÔNG TẠO THỦ CÔNG)
+// @desc    Láº¥y danh sÃ¡ch giao dá»‹ch (CHá»ˆ XEM - KHÃ”NG Táº O THá»¦ CÃ”NG)
 // @route   GET /api/transactions
 // @access  Private
 export const getTransactions = async (
@@ -19,31 +19,31 @@ export const getTransactions = async (
   try {
     const filter: any = {};
 
-    // Lọc theo loại giao dịch
+    // Lá»c theo loáº¡i giao dá»‹ch
     if (req.query.type) filter.type = req.query.type;
 
-    // Lọc theo danh mục
+    // Lá»c theo danh má»¥c
     if (req.query.category) filter.category = req.query.category;
 
-    // Lọc theo phương thức thanh toán
+    // Lá»c theo phÆ°Æ¡ng thá»©c thanh toÃ¡n
     if (req.query.paymentMethod) filter.paymentMethod = req.query.paymentMethod;
 
-    // Lọc theo người tạo
+    // Lá»c theo ngÆ°á»i táº¡o
     if (req.query.createdBy) filter.createdBy = req.query.createdBy;
 
-    // Lọc theo giao dịch tự động/thủ công
+    // Lá»c theo giao dá»‹ch tá»± Ä‘á»™ng/thá»§ cÃ´ng
     if (req.query.autoCreated !== undefined) {
       filter["metadata.autoCreated"] = req.query.autoCreated === "true";
     }
 
-    // Lọc theo số tiền
+    // Lá»c theo sá»‘ tiá»n
     if (req.query.minAmount || req.query.maxAmount) {
       filter.amount = {};
       if (req.query.minAmount) filter.amount.$gte = Number(req.query.minAmount);
       if (req.query.maxAmount) filter.amount.$lte = Number(req.query.maxAmount);
     }
 
-    // Lọc theo ngày
+    // Lá»c theo ngÃ y
     if (req.query.startDate || req.query.endDate) {
       filter.transactionDate = {};
       if (req.query.startDate)
@@ -57,7 +57,7 @@ export const getTransactions = async (
 
     const { page, limit, search } = createPageOptions(req);
 
-    // Tìm kiếm theo mã giao dịch hoặc mô tả
+    // TÃ¬m kiáº¿m theo mÃ£ giao dá»‹ch hoáº·c mÃ´ táº£
     if (search) {
       filter.$or = [
         { transactionNumber: new RegExp(search, "i") },
@@ -85,7 +85,7 @@ export const getTransactions = async (
       Transaction.countDocuments(filter),
     ]);
 
-    // Tính tổng kết cho khoảng thời gian được lọc
+    // TÃ­nh tá»•ng káº¿t cho khoáº£ng thá»i gian Ä‘Æ°á»£c lá»c
     const summary = await TransactionService.getTransactionSummary(
       req.query.startDate ? new Date(req.query.startDate as string) : undefined,
       req.query.endDate ? new Date(req.query.endDate as string) : undefined
@@ -102,13 +102,13 @@ export const getTransactions = async (
       summary,
     };
 
-    jsonAll<ITransactionResponse>(res, StatusCodes.OK, transactions as any, meta);
+    jsonAll<ITransactionResponse>(res, StatusCodes.OK, transactions, meta);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy chi tiết giao dịch
+// @desc    Láº¥y chi tiáº¿t giao dá»‹ch
 // @route   GET /api/transactions/:id
 // @access  Private
 export const getTransactionById = async (
@@ -144,13 +144,13 @@ export const getTransactionById = async (
       });
     }
 
-    jsonOne<ITransactionResponse>(res, StatusCodes.OK, transaction as any);
+    jsonOne<ITransactionResponse>(res, StatusCodes.OK, transaction);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy thống kê giao dịch
+// @desc    Láº¥y thá»‘ng kÃª giao dá»‹ch
 // @route   GET /api/transactions/stats
 // @access  Private
 export const getTransactionStats = async (
@@ -203,5 +203,5 @@ export const getTransactionStats = async (
   }
 };
 
-// ⚠️ BỎ CÁC ENDPOINT TẠO/SỬA/XÓA GIAO DỊCH THỦ CÔNG
-// Tất cả giao dịch đều được tạo tự động từ order và stock voucher
+// âš ï¸ Bá»Ž CÃC ENDPOINT Táº O/Sá»¬A/XÃ“A GIAO Dá»ŠCH THá»¦ CÃ”NG
+// Táº¥t cáº£ giao dá»‹ch Ä‘á»u Ä‘Æ°á»£c táº¡o tá»± Ä‘á»™ng tá»« order vÃ  stock voucher

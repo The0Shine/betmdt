@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import Category from "../models/category.model";
 import { asyncHandler } from "../middlewares/async.middleware";
@@ -8,7 +8,7 @@ import { ICategoryResponse } from "../interfaces/response/category.interface";
 import { createPageOptions, createSearchCondition } from "../utils/pagination";
 import { log } from "console";
 
-// @desc    Lấy tất cả danh mục
+// @desc    Láº¥y táº¥t cáº£ danh má»¥c
 // @route   GET /api/categories
 // @access  Public
 
@@ -16,7 +16,7 @@ export const getCategories = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction) => {
     const filter: any = {};
 
-    // Xử lý parent filter một cách an toàn
+    // Xá»­ lÃ½ parent filter má»™t cÃ¡ch an toÃ n
     const parentValue = req.query.parent as string;
     if (parentValue && parentValue !== "null" && parentValue !== "undefined") {
       filter.parent = parentValue;
@@ -24,20 +24,20 @@ export const getCategories = asyncHandler(
       filter.parent = { $exists: false };
     }
 
-    // Lấy các tùy chọn phân trang và tìm kiếm
+    // Láº¥y cÃ¡c tÃ¹y chá»n phÃ¢n trang vÃ  tÃ¬m kiáº¿m
     const { page, limit, search } = createPageOptions(req);
     Object.assign(filter, createSearchCondition(search, Category));
 
     const skip = (page - 1) * limit;
 
-    // Xử lý sắp xếp (mặc định theo name tăng dần)
+    // Xá»­ lÃ½ sáº¯p xáº¿p (máº·c Ä‘á»‹nh theo name tÄƒng dáº§n)
     let sort: any = { name: 1 };
     if (req.query.sort) {
       const [field, order] = (req.query.sort as string).split(",");
       sort = { [field]: order === "asc" ? 1 : -1 };
     }
 
-    // Tạo query chính
+    // Táº¡o query chÃ­nh
     const query = Category.find(filter).populate("parent", "name").sort(sort);
     if (limit > 0) {
       query.skip(skip).limit(limit);
@@ -61,18 +61,18 @@ export const getCategories = asyncHandler(
           : null,
     };
 
-    return jsonAll<ICategoryResponse>(res, StatusCodes.OK, categories as any, meta);
+    return jsonAll<ICategoryResponse>(res, StatusCodes.OK, categories, meta);
   }
 );
 
-// @desc    Lấy cây danh mục
+// @desc    Láº¥y cÃ¢y danh má»¥c
 // @route   GET /api/categories/tree
 // @access  Public
 // export const getCategoryTree = asyncHandler(
 //   async (_req: Request, res: Response) => {
 //     const categories = await Category.find().sort({ name: 1 });
 
-//     // Tạo map để dễ dàng lookup
+//     // Táº¡o map Ä‘á»ƒ dá»… dÃ ng lookup
 //     const categoryMap = new Map();
 //     categories.forEach((cat) => {
 //       categoryMap.set(cat._id.toString(), {
@@ -86,7 +86,7 @@ export const getCategories = asyncHandler(
 //       });
 //     });
 
-//     // Xây dựng cây
+//     // XÃ¢y dá»±ng cÃ¢y
 //     const tree: any[] = [];
 //     categoryMap.forEach((category) => {
 //       if (category.parent) {
@@ -106,7 +106,7 @@ export const getCategories = asyncHandler(
 //   }
 // );
 
-// @desc    Lấy danh mục theo ID
+// @desc    Láº¥y danh má»¥c theo ID
 // @route   GET /api/categories/:id
 // @access  Public
 export const getCategoryById = asyncHandler(
@@ -119,48 +119,48 @@ export const getCategoryById = asyncHandler(
     if (!category) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy danh mục với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
     }
 
-    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category as any);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category);
   }
 );
 
-// @desc    Tạo danh mục mới
+// @desc    Táº¡o danh má»¥c má»›i
 // @route   POST /api/categories
 // @access  Private/Admin
 export const createCategory = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const { name, description, icon, parent } = req.body;
 
-    // Tạo slug từ name
+    // Táº¡o slug tá»« name
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .trim();
 
-    // Kiểm tra slug đã tồn tại chưa
+    // Kiá»ƒm tra slug Ä‘Ã£ tá»“n táº¡i chÆ°a
     const existingCategory = await Category.findOne({ slug });
     if (existingCategory) {
       return next(
         new ErrorResponse(
-          `Danh mục với tên "${name}" đã tồn tại`,
+          `Danh má»¥c vá»›i tÃªn "${name}" Ä‘Ã£ tá»“n táº¡i`,
           StatusCodes.BAD_REQUEST
         )
       );
     }
 
-    // Kiểm tra parent có tồn tại không
+    // Kiá»ƒm tra parent cÃ³ tá»“n táº¡i khÃ´ng
     if (parent) {
       const parentCategory = await Category.findById(parent);
       if (!parentCategory) {
         return next(
           new ErrorResponse(
-            `Không tìm thấy danh mục cha`,
+            `KhÃ´ng tÃ¬m tháº¥y danh má»¥c cha`,
             StatusCodes.BAD_REQUEST
           )
         );
@@ -179,11 +179,11 @@ export const createCategory = asyncHandler(
       "parent",
       "name"
     );
-    return jsonOne<ICategoryResponse>(res, StatusCodes.CREATED, populatedCategory as any);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.CREATED, populatedCategory);
   }
 );
 
-// @desc    Cập nhật danh mục
+// @desc    Cáº­p nháº­t danh má»¥c
 // @route   PUT /api/categories/:id
 // @access  Private/Admin
 export const updateCategory = asyncHandler(
@@ -193,7 +193,7 @@ export const updateCategory = asyncHandler(
     if (!category) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy danh mục với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
@@ -201,7 +201,7 @@ export const updateCategory = asyncHandler(
 
     const { name, description, icon, parent } = req.body;
 
-    // Tạo slug mới nếu name thay đổi
+    // Táº¡o slug má»›i náº¿u name thay Ä‘á»•i
     let slug = category.slug;
     if (name && name !== category.name) {
       slug = name
@@ -210,7 +210,7 @@ export const updateCategory = asyncHandler(
         .replace(/\s+/g, "-")
         .trim();
 
-      // Kiểm tra slug mới đã tồn tại chưa
+      // Kiá»ƒm tra slug má»›i Ä‘Ã£ tá»“n táº¡i chÆ°a
       const existingCategory = await Category.findOne({
         slug,
         _id: { $ne: req.params.id },
@@ -218,19 +218,19 @@ export const updateCategory = asyncHandler(
       if (existingCategory) {
         return next(
           new ErrorResponse(
-            `Danh mục với tên "${name}" đã tồn tại`,
+            `Danh má»¥c vá»›i tÃªn "${name}" Ä‘Ã£ tá»“n táº¡i`,
             StatusCodes.BAD_REQUEST
           )
         );
       }
     }
 
-    // Kiểm tra parent
+    // Kiá»ƒm tra parent
     if (parent && parent !== category.parent?.toString()) {
       if (parent === req.params.id) {
         return next(
           new ErrorResponse(
-            "Không thể đặt danh mục làm cha của chính nó",
+            "KhÃ´ng thá»ƒ Ä‘áº·t danh má»¥c lÃ m cha cá»§a chÃ­nh nÃ³",
             StatusCodes.BAD_REQUEST
           )
         );
@@ -240,7 +240,7 @@ export const updateCategory = asyncHandler(
       if (!parentCategory) {
         return next(
           new ErrorResponse(
-            `Không tìm thấy danh mục cha`,
+            `KhÃ´ng tÃ¬m tháº¥y danh má»¥c cha`,
             StatusCodes.BAD_REQUEST
           )
         );
@@ -262,11 +262,11 @@ export const updateCategory = asyncHandler(
       }
     ).populate("parent", "name");
 
-    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category as any);
+    return jsonOne<ICategoryResponse>(res, StatusCodes.OK, category);
   }
 );
 
-// @desc    Xóa danh mục
+// @desc    XÃ³a danh má»¥c
 // @route   DELETE /api/categories/:id
 // @access  Private/Admin
 export const deleteCategory = asyncHandler(
@@ -276,18 +276,18 @@ export const deleteCategory = asyncHandler(
     if (!category) {
       return next(
         new ErrorResponse(
-          `Không tìm thấy danh mục với id ${req.params.id}`,
+          `KhÃ´ng tÃ¬m tháº¥y danh má»¥c vá»›i id ${req.params.id}`,
           StatusCodes.NOT_FOUND
         )
       );
     }
 
-    // Kiểm tra có danh mục con không
+    // Kiá»ƒm tra cÃ³ danh má»¥c con khÃ´ng
     const childCategories = await Category.find({ parent: req.params.id });
     if (childCategories.length > 0) {
       return next(
         new ErrorResponse(
-          "Không thể xóa danh mục có danh mục con",
+          "KhÃ´ng thá»ƒ xÃ³a danh má»¥c cÃ³ danh má»¥c con",
           StatusCodes.BAD_REQUEST
         )
       );
@@ -295,6 +295,6 @@ export const deleteCategory = asyncHandler(
 
     await category.deleteOne();
 
-    return jsonOne(res, StatusCodes.OK, { message: "Đã xóa danh mục" });
+    return jsonOne(res, StatusCodes.OK, { message: "ÄÃ£ xÃ³a danh má»¥c" });
   }
 );

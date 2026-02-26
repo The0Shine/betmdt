@@ -11,6 +11,8 @@ import transactionRoutes from "./transaction.routes";
 import roleRoutes from "./role.routes";
 import dashboardRoutes from "./dashboard.routes";
 import paymentRoutes from "./payment.routes";
+import addressRoutes from "./address.route";
+import searchRoutes from "./search.routes";
 const router = express.Router();
 router.use("/auth", authRoutes);
 router.use("/categories", catergoryRoutes);
@@ -24,5 +26,7 @@ router.use("/transactions", transactionRoutes);
 router.use("/roles", roleRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/payment", paymentRoutes);
+router.use("/addresses", addressRoutes);
+router.use("/search", searchRoutes);
 // Add more routes as needed
 export default router;

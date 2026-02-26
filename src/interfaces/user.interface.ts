@@ -22,3 +22,14 @@ export interface IUser extends Document {
   getSignedJwtToken(): string;
   getResetPasswordToken(): string;
 }
+
+/**
+ * Populated user object returned when using .populate("user", "firstName lastName email")
+ * Use this instead of 'as any' when accessing populated user fields
+ */
+export interface IPopulatedUser {
+  _id: Types.ObjectId;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}

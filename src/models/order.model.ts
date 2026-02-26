@@ -31,10 +31,24 @@ const OrderSchema: Schema = new Schema(
       update_time: { type: String },
       email_address: { type: String },
     },
-    shippingAddress: {
-      address: { type: String, required: true },
-      city: { type: String, required: true },
+    
+    // Reference to original address (optional)
+    shippingAddressId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Address",
     },
+    
+    // Snapshot of address at order time (required)
+    shippingAddress: {
+      fullName: { type: String, required: true },
+      phone: { type: String, required: true },
+      provinceName: { type: String, required: true },
+      districtName: { type: String, required: true },
+      wardName: { type: String, required: true },
+      streetAddress: { type: String, required: true },
+      fullAddress: { type: String, required: true },
+    },
+    
     totalPrice: {
       type: Number,
       required: true,
@@ -63,10 +77,8 @@ const OrderSchema: Schema = new Schema(
     },
 
     refundInfo: {
-      // refundAmount: { type: Number },
       refundReason: { type: String },
       refundDate: { type: Date },
-
       refundTransactionId: { type: String },
       notes: { type: String },
     },

@@ -5,6 +5,7 @@ import Product from "../models/product.model";
 import User from "../models/user.model";
 import { Stock } from "../models/stock.model";
 import { jsonOne } from "../utils/general";
+import { ORDER_STATUS } from "../constants";
 
 interface PopulatedUser {
   _id: string;
@@ -60,7 +61,7 @@ export const getDashboardOverview = async (
 
       // Tổng doanh thu
       Order.aggregate([
-        { $match: { status: "completed", isPaid: true } },
+        { $match: { status: ORDER_STATUS.COMPLETED, isPaid: true } },
         { $group: { _id: null, total: { $sum: "$totalPrice" } } },
       ]),
 

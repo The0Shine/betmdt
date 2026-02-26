@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import Product from "../models/product.model";
 import { Stock, StockHistory } from "../models/stock.model";
@@ -10,7 +10,7 @@ import mongoose, { Types } from "mongoose";
 import orderModel from "../models/order.model";
 import { IStockVoucherResponse, IStockHistoryResponse } from "../interfaces/response/stock.interface";
 
-// @desc    Lấy tất cả phiếu kho
+// @desc    Láº¥y táº¥t cáº£ phiáº¿u kho
 // @route   GET /api/stock
 // @access  Public
 export const getStockVouchers = async (
@@ -66,7 +66,7 @@ export const getStockVouchers = async (
       Stock.countDocuments(filter),
     ]);
 
-    // KHÔNG return, chỉ gọi res.json
+    // KHÃ”NG return, chá»‰ gá»i res.json
     const meta = {
       count: vouchers.length,
       total,
@@ -77,13 +77,13 @@ export const getStockVouchers = async (
       },
     };
 
-    jsonAll<IStockVoucherResponse>(res, StatusCodes.OK, vouchers as any, meta);
+    jsonAll<IStockVoucherResponse>(res, StatusCodes.OK, vouchers, meta);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy phiếu kho theo ID
+// @desc    Láº¥y phiáº¿u kho theo ID
 // @route   GET /api/stock/:id
 // @access  Public
 export const getStockVoucherById = async (
@@ -97,7 +97,7 @@ export const getStockVoucherById = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -112,18 +112,18 @@ export const getStockVoucherById = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Tạo phiếu kho mới
+// @desc    Táº¡o phiáº¿u kho má»›i
 // @route   POST /api/stock
 // @access  Public
 export const createStockVoucher = async (
@@ -139,7 +139,7 @@ export const createStockVoucher = async (
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new HttpError({
         title: "missing_items",
-        detail: "Vui lòng thêm ít nhất một sản phẩm",
+        detail: "Vui lÃ²ng thÃªm Ã­t nháº¥t má»™t sáº£n pháº©m",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -149,7 +149,7 @@ export const createStockVoucher = async (
       if (!item.product || !item.quantity || Number(item.quantity) <= 0) {
         throw new HttpError({
           title: "invalid_item",
-          detail: "Thông tin sản phẩm không hợp lệ",
+          detail: "ThÃ´ng tin sáº£n pháº©m khÃ´ng há»£p lá»‡",
           code: StatusCodes.BAD_REQUEST,
         });
       }
@@ -157,7 +157,7 @@ export const createStockVoucher = async (
       if (!mongoose.Types.ObjectId.isValid(item.product)) {
         throw new HttpError({
           title: "invalid_product_id",
-          detail: `ID sản phẩm không hợp lệ: ${item.product}`,
+          detail: `ID sáº£n pháº©m khÃ´ng há»£p lá»‡: ${item.product}`,
           code: StatusCodes.BAD_REQUEST,
         });
       }
@@ -166,7 +166,7 @@ export const createStockVoucher = async (
       if (!product) {
         throw new HttpError({
           title: "product_not_found",
-          detail: `Không tìm thấy sản phẩm với id ${item.product}`,
+          detail: `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i id ${item.product}`,
           code: StatusCodes.NOT_FOUND,
         });
       }
@@ -175,7 +175,7 @@ export const createStockVoucher = async (
       if (type === "export" && product.quantity < item.quantity) {
         throw new HttpError({
           title: "insufficient_stock",
-          detail: `Không đủ tồn kho cho sản phẩm ${product.name}. Tồn kho hiện tại: ${product.quantity}, yêu cầu: ${item.quantity}`,
+          detail: `KhÃ´ng Ä‘á»§ tá»“n kho cho sáº£n pháº©m ${product.name}. Tá»“n kho hiá»‡n táº¡i: ${product.quantity}, yÃªu cáº§u: ${item.quantity}`,
           code: StatusCodes.BAD_REQUEST,
         });
       }
@@ -187,21 +187,21 @@ export const createStockVoucher = async (
       items,
       notes,
       relatedOrder,
-      status, // Mặc định là pending
+      status, // Máº·c Ä‘á»‹nh lÃ  pending
       createdBy: userId,
     });
 
     await voucher.populate("createdBy", "lastName email");
     await voucher.populate("items.product", "name");
 
-    console.log(`📋 Đã tạo phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher as any);
+    console.log(`ðŸ“‹ ÄÃ£ táº¡o phiáº¿u kho: ${voucher.voucherNumber}`);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Cập nhật phiếu kho
+// @desc    Cáº­p nháº­t phiáº¿u kho
 // @route   PUT /api/stock/:id
 // @access  Public
 export const updateStockVoucher = async (
@@ -215,7 +215,7 @@ export const updateStockVoucher = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -225,7 +225,7 @@ export const updateStockVoucher = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -233,7 +233,7 @@ export const updateStockVoucher = async (
     if (voucher.status !== "pending") {
       throw new HttpError({
         title: "cannot_edit",
-        detail: "Chỉ có thể chỉnh sửa phiếu kho đang chờ duyệt",
+        detail: "Chá»‰ cÃ³ thá»ƒ chá»‰nh sá»­a phiáº¿u kho Ä‘ang chá» duyá»‡t",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -245,13 +245,13 @@ export const updateStockVoucher = async (
       .populate("createdBy", "lastName email")
       .populate("items.product", "name");
 
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, updated as any);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, updated);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Xóa phiếu kho
+// @desc    XÃ³a phiáº¿u kho
 // @route   DELETE /api/stock/:id
 // @access  Public
 export const deleteStockVoucher = async (
@@ -265,7 +265,7 @@ export const deleteStockVoucher = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -275,7 +275,7 @@ export const deleteStockVoucher = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -283,19 +283,19 @@ export const deleteStockVoucher = async (
     if (voucher.status !== "pending") {
       throw new HttpError({
         title: "cannot_delete",
-        detail: "Chỉ có thể xóa phiếu kho đang chờ duyệt",
+        detail: "Chá»‰ cÃ³ thá»ƒ xÃ³a phiáº¿u kho Ä‘ang chá» duyá»‡t",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
     await voucher.deleteOne();
-    jsonOne(res, StatusCodes.OK, { message: "Đã xóa phiếu kho" });
+    jsonOne(res, StatusCodes.OK, { message: "ÄÃ£ xÃ³a phiáº¿u kho" });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Phê duyệt phiếu kho
+// @desc    PhÃª duyá»‡t phiáº¿u kho
 // @route   PATCH /api/stock/:id/approve
 // @access  Public
 export const approveStockVoucher = async (
@@ -310,7 +310,7 @@ export const approveStockVoucher = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -320,7 +320,7 @@ export const approveStockVoucher = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -328,16 +328,16 @@ export const approveStockVoucher = async (
     if (voucher.status !== "pending") {
       throw new HttpError({
         title: "cannot_approve",
-        detail: "Chỉ có thể phê duyệt phiếu kho đang chờ duyệt",
+        detail: "Chá»‰ cÃ³ thá»ƒ phÃª duyá»‡t phiáº¿u kho Ä‘ang chá» duyá»‡t",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    console.log(`🔍 Phê duyệt phiếu ${voucher.type}: ${voucher.voucherNumber}`);
+    console.log(`ðŸ” PhÃª duyá»‡t phiáº¿u ${voucher.type}: ${voucher.voucherNumber}`);
 
-    // CHỈ kiểm tra tồn kho cho phiếu XUẤT kho
+    // CHá»ˆ kiá»ƒm tra tá»“n kho cho phiáº¿u XUáº¤T kho
     if (voucher.type === "export") {
-      console.log("🔍 Kiểm tra tồn kho cho phiếu xuất kho...");
+      console.log("ðŸ” Kiá»ƒm tra tá»“n kho cho phiáº¿u xuáº¥t kho...");
 
       for (const item of voucher.items) {
         const product = await Product.findById(item.product);
@@ -346,7 +346,7 @@ export const approveStockVoucher = async (
           return next(
             new HttpError({
               title: "product_not_found",
-              detail: `Không tìm thấy sản phẩm với tên "${item.productName}" (ID: ${item.product})`,
+              detail: `KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m vá»›i tÃªn "${item.productName}" (ID: ${item.product})`,
               code: StatusCodes.NOT_FOUND,
             })
           );
@@ -356,21 +356,21 @@ export const approveStockVoucher = async (
           return next(
             new HttpError({
               title: "insufficient_stock",
-              detail: `Không đủ tồn kho cho sản phẩm "${item.productName}". Tồn kho hiện tại: ${product.quantity}, yêu cầu: ${item.quantity}`,
+              detail: `KhÃ´ng Ä‘á»§ tá»“n kho cho sáº£n pháº©m "${item.productName}". Tá»“n kho hiá»‡n táº¡i: ${product.quantity}, yÃªu cáº§u: ${item.quantity}`,
               code: StatusCodes.BAD_REQUEST,
             })
           );
         }
       }
     } else if (voucher.type === "import") {
-      console.log("📦 Phê duyệt phiếu nhập kho");
+      console.log("ðŸ“¦ PhÃª duyá»‡t phiáº¿u nháº­p kho");
     }
 
-    // Cập nhật tồn kho và tạo lịch sử
+    // Cáº­p nháº­t tá»“n kho vÃ  táº¡o lá»‹ch sá»­
     for (const item of voucher.items) {
       const product = await Product.findById(item.product);
       if (!product) {
-        console.warn(`⚠️ Không tìm thấy sản phẩm ${item.product}, bỏ qua...`);
+        console.warn(`âš ï¸ KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m ${item.product}, bá» qua...`);
         continue;
       }
 
@@ -379,22 +379,22 @@ export const approveStockVoucher = async (
         voucher.type === "import" ? item.quantity : -item.quantity;
       const quantityAfter = quantityBefore + quantityChange;
 
-      // Đảm bảo tồn kho không âm (double check cho phiếu xuất)
+      // Äáº£m báº£o tá»“n kho khÃ´ng Ã¢m (double check cho phiáº¿u xuáº¥t)
       if (quantityAfter < 0) {
         return next(
           new HttpError({
             title: "negative_stock",
-            detail: `Tồn kho sản phẩm "${item.productName}" sẽ bị âm sau khi xuất: ${quantityAfter}`,
+            detail: `Tá»“n kho sáº£n pháº©m "${item.productName}" sáº½ bá»‹ Ã¢m sau khi xuáº¥t: ${quantityAfter}`,
             code: StatusCodes.BAD_REQUEST,
           })
         );
       }
 
-      // Cập nhật tồn kho
+      // Cáº­p nháº­t tá»“n kho
       product.quantity = quantityAfter;
       await product.save();
 
-      // Tạo lịch sử stock
+      // Táº¡o lá»‹ch sá»­ stock
       await StockHistory.create({
         product: item.product,
         productName: item.productName,
@@ -411,31 +411,31 @@ export const approveStockVoucher = async (
       });
 
       console.log(
-        `📊 Cập nhật tồn kho ${
+        `ðŸ“Š Cáº­p nháº­t tá»“n kho ${
           item.productName
-        }: ${quantityBefore} → ${quantityAfter} (${
+        }: ${quantityBefore} â†’ ${quantityAfter} (${
           quantityChange > 0 ? "+" : ""
         }${quantityChange})`
       );
     }
 
-    // Cập nhật trạng thái phiếu
+    // Cáº­p nháº­t tráº¡ng thÃ¡i phiáº¿u
     voucher.status = "approved";
     voucher.approvedBy = new Types.ObjectId(userId);
     voucher.approvedAt = new Date();
     await voucher.save();
 
-    // 🎯 TỰ ĐỘNG TẠO GIAO DỊCH TÀI CHÍNH
+    // ðŸŽ¯ Tá»° Äá»˜NG Táº O GIAO Dá»ŠCH TÃ€I CHÃNH
     try {
       if (voucher.type === "import") {
-        console.log(`💸 Tạo giao dịch chi cho phiếu nhập kho...`);
+        console.log(`ðŸ’¸ Táº¡o giao dá»‹ch chi cho phiáº¿u nháº­p kho...`);
         await TransactionService.createFromImportVoucher(
           voucher._id,
           voucher.totalValue || 0,
           new Types.ObjectId(userId)
         );
       } else if (voucher.type === "export") {
-        console.log(`📈 Tạo giao dịch giá vốn cho phiếu xuất kho...`);
+        console.log(`ðŸ“ˆ Táº¡o giao dá»‹ch giÃ¡ vá»‘n cho phiáº¿u xuáº¥t kho...`);
         const totalCostValue = voucher.items.reduce((total, item) => {
           return total + (item.costPrice || 0) * item.quantity;
         }, 0);
@@ -448,21 +448,21 @@ export const approveStockVoucher = async (
       }
     } catch (transactionError) {
       console.error(
-        "⚠️ Lỗi tạo giao dịch (không ảnh hưởng phê duyệt phiếu):",
+        "âš ï¸ Lá»—i táº¡o giao dá»‹ch (khÃ´ng áº£nh hÆ°á»Ÿng phÃª duyá»‡t phiáº¿u):",
         transactionError
       );
     }
 
     console.log(
-      `✅ Đã phê duyệt phiếu ${voucher.type} kho: ${voucher.voucherNumber}`
+      `âœ… ÄÃ£ phÃª duyá»‡t phiáº¿u ${voucher.type} kho: ${voucher.voucherNumber}`
     );
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Từ chối phiếu kho
+// @desc    Tá»« chá»‘i phiáº¿u kho
 // @route   PATCH /api/stock/:id/reject
 // @access  Public
 export const rejectStockVoucher = async (
@@ -478,7 +478,7 @@ export const rejectStockVoucher = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -488,7 +488,7 @@ export const rejectStockVoucher = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -496,7 +496,7 @@ export const rejectStockVoucher = async (
     if (voucher.status !== "pending") {
       throw new HttpError({
         title: "cannot_reject",
-        detail: "Chỉ có thể từ chối phiếu kho đang chờ duyệt",
+        detail: "Chá»‰ cÃ³ thá»ƒ tá»« chá»‘i phiáº¿u kho Ä‘ang chá» duyá»‡t",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -507,14 +507,14 @@ export const rejectStockVoucher = async (
     voucher.rejectionReason = rejectionReason;
     await voucher.save();
 
-    console.log(`❌ Đã từ chối phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
+    console.log(`âŒ ÄÃ£ tá»« chá»‘i phiáº¿u kho: ${voucher.voucherNumber}`);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Hủy phiếu kho
+// @desc    Há»§y phiáº¿u kho
 // @route   PATCH /api/stock/:id/cancel
 // @access  Public
 export const cancelStockVoucher = async (
@@ -528,7 +528,7 @@ export const cancelStockVoucher = async (
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new HttpError({
         title: "invalid_id",
-        detail: `ID không hợp lệ: ${id}`,
+        detail: `ID khÃ´ng há»£p lá»‡: ${id}`,
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -538,7 +538,7 @@ export const cancelStockVoucher = async (
     if (!voucher) {
       throw new HttpError({
         title: "voucher_not_found",
-        detail: `Không tìm thấy phiếu kho với id ${id}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y phiáº¿u kho vá»›i id ${id}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
@@ -546,7 +546,7 @@ export const cancelStockVoucher = async (
     if (voucher.status === "approved") {
       throw new HttpError({
         title: "cannot_cancel",
-        detail: "Không thể hủy phiếu kho đã được phê duyệt",
+        detail: "KhÃ´ng thá»ƒ há»§y phiáº¿u kho Ä‘Ã£ Ä‘Æ°á»£c phÃª duyá»‡t",
         code: StatusCodes.BAD_REQUEST,
       });
     }
@@ -554,14 +554,14 @@ export const cancelStockVoucher = async (
     voucher.status = "cancelled";
     await voucher.save();
 
-    console.log(`🚫 Đã hủy phiếu kho: ${voucher.voucherNumber}`);
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher as any);
+    console.log(`ðŸš« ÄÃ£ há»§y phiáº¿u kho: ${voucher.voucherNumber}`);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.OK, voucher);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Lấy lịch sử kho
+// @desc    Láº¥y lá»‹ch sá»­ kho
 // @route   GET /api/stock/history
 // @access  Public
 export const getStockHistory = async (
@@ -579,7 +579,7 @@ export const getStockHistory = async (
       if (!mongoose.Types.ObjectId.isValid(productId)) {
         jsonOne(res, StatusCodes.BAD_REQUEST, {
           success: false,
-          message: `ID sản phẩm không hợp lệ: ${productId}`,
+          message: `ID sáº£n pháº©m khÃ´ng há»£p lá»‡: ${productId}`,
         });
       }
       filter.product = productId;
@@ -634,7 +634,7 @@ export const getStockHistory = async (
       },
     };
 
-    jsonAll<IStockHistoryResponse>(res, StatusCodes.OK, history as any, meta);
+    jsonAll<IStockHistoryResponse>(res, StatusCodes.OK, history, meta);
   } catch (error) {
     next(error);
   }
@@ -651,34 +651,34 @@ export const createStockVoucherFromOrder = async (
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       throw new HttpError({
         title: "invalid_order_id",
-        detail: "ID đơn hàng không hợp lệ hoặc không được cung cấp",
+        detail: "ID Ä‘Æ¡n hÃ ng khÃ´ng há»£p lá»‡ hoáº·c khÃ´ng Ä‘Æ°á»£c cung cáº¥p",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Lấy đơn hàng kèm thông tin sản phẩm
+    // Láº¥y Ä‘Æ¡n hÃ ng kÃ¨m thÃ´ng tin sáº£n pháº©m
     const order = await orderModel
       .findById(orderId)
       .populate("orderItems.product");
     if (!order) {
       throw new HttpError({
         title: "order_not_found",
-        detail: `Không tìm thấy đơn hàng với id ${orderId}`,
+        detail: `KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng vá»›i id ${orderId}`,
         code: StatusCodes.NOT_FOUND,
       });
     }
 
-    // Kiểm tra trạng thái đơn hàng (ví dụ chỉ tạo phiếu kho khi đã thanh toán hoặc hoàn thành)
+    // Kiá»ƒm tra tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng (vÃ­ dá»¥ chá»‰ táº¡o phiáº¿u kho khi Ä‘Ã£ thanh toÃ¡n hoáº·c hoÃ n thÃ nh)
     if (!["completed"].includes(order.status)) {
       throw new HttpError({
         title: "invalid_order_status",
         detail:
-          "Chỉ có thể tạo phiếu kho cho đơn hàng đã thanh toán hoặc hoàn thành",
+          "Chá»‰ cÃ³ thá»ƒ táº¡o phiáº¿u kho cho Ä‘Æ¡n hÃ ng Ä‘Ã£ thanh toÃ¡n hoáº·c hoÃ n thÃ nh",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Chuẩn bị danh sách items cho phiếu kho, kiểm tra tồn kho từng sản phẩm
+    // Chuáº©n bá»‹ danh sÃ¡ch items cho phiáº¿u kho, kiá»ƒm tra tá»“n kho tá»«ng sáº£n pháº©m
     const items = [];
 
     for (const orderItem of order.orderItems) {
@@ -686,7 +686,7 @@ export const createStockVoucherFromOrder = async (
       if (!product) {
         throw new HttpError({
           title: "product_not_found",
-          detail: `Sản phẩm trong đơn hàng không tồn tại, id: ${orderItem.product}`,
+          detail: `Sáº£n pháº©m trong Ä‘Æ¡n hÃ ng khÃ´ng tá»“n táº¡i, id: ${orderItem.product}`,
           code: StatusCodes.NOT_FOUND,
         });
       }
@@ -694,7 +694,7 @@ export const createStockVoucherFromOrder = async (
       if (product.quantity < orderItem.quantity) {
         throw new HttpError({
           title: "insufficient_stock",
-          detail: `Sản phẩm ${product.name} không đủ tồn kho. Tồn kho: ${product.quantity}, Yêu cầu: ${orderItem.quantity}`,
+          detail: `Sáº£n pháº©m ${product.name} khÃ´ng Ä‘á»§ tá»“n kho. Tá»“n kho: ${product.quantity}, YÃªu cáº§u: ${orderItem.quantity}`,
           code: StatusCodes.BAD_REQUEST,
         });
       }
@@ -708,30 +708,30 @@ export const createStockVoucherFromOrder = async (
     if (items.length === 0) {
       throw new HttpError({
         title: "empty_items",
-        detail: "Đơn hàng không có sản phẩm để tạo phiếu kho",
+        detail: "ÄÆ¡n hÃ ng khÃ´ng cÃ³ sáº£n pháº©m Ä‘á»ƒ táº¡o phiáº¿u kho",
         code: StatusCodes.BAD_REQUEST,
       });
     }
 
-    // Tạo phiếu kho xuất từ đơn hàng (type export)
+    // Táº¡o phiáº¿u kho xuáº¥t tá»« Ä‘Æ¡n hÃ ng (type export)
     const voucher = await Stock.create({
-      type: "export", // giả sử mặc định là phiếu xuất kho khi tạo từ đơn hàng
-      reason: `Xuất kho từ đơn hàng ${order._id}`,
+      type: "export", // giáº£ sá»­ máº·c Ä‘á»‹nh lÃ  phiáº¿u xuáº¥t kho khi táº¡o tá»« Ä‘Æ¡n hÃ ng
+      reason: `Xuáº¥t kho tá»« Ä‘Æ¡n hÃ ng ${order._id}`,
       items,
-      notes: `Phiếu kho tạo tự động từ đơn hàng ${order._id}`,
+      notes: `Phiáº¿u kho táº¡o tá»± Ä‘á»™ng tá»« Ä‘Æ¡n hÃ ng ${order._id}`,
       relatedOrder: order._id,
       createdBy: userId,
     });
 
-    // Populate các trường cần thiết để trả về client
+    // Populate cÃ¡c trÆ°á»ng cáº§n thiáº¿t Ä‘á»ƒ tráº£ vá» client
     await voucher.populate("createdBy", "lastName email");
     await voucher.populate("items.product", "name");
 
     console.log(
-      `📋 Đã tạo phiếu kho từ đơn hàng: ${voucher.voucherNumber || voucher._id}`
+      `ðŸ“‹ ÄÃ£ táº¡o phiáº¿u kho tá»« Ä‘Æ¡n hÃ ng: ${voucher.voucherNumber || voucher._id}`
     );
 
-    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher as any);
+    jsonOne<IStockVoucherResponse>(res, StatusCodes.CREATED, voucher);
   } catch (error) {
     next(error);
   }

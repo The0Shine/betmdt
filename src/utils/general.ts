@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { IResponse, IListResponse } from "../interfaces/response/response.interface";
+import type { Document } from "mongoose";
 
 /**
  * Standard response envelope for ALL API responses:
@@ -10,16 +11,28 @@ import { IResponse, IListResponse } from "../interfaces/response/response.interf
  * }
  */
 
+/**
+ * Converts a Mongoose document (or plain object) to a plain object.
+ * This eliminates the need for "as any" casts when passing to jsonOne/jsonAll.
+ */
+function toPlainObject<T>(doc: T | Document): T {
+  if (doc && typeof (doc as Document).toObject === "function") {
+    return (doc as Document).toObject() as T;
+  }
+  return doc as T;
+}
+
 // SEND RESPONSE FOR LIST
 const jsonAll = function <T>(
   res: Response,
   status: number,
-  data: T[],
-  meta: Object = {}
+  data: (T | Document)[],
+  meta: object = {}
 ): Response<IListResponse<T>> {
+  const plainData = data.map((item) => toPlainObject<T>(item));
   return res.status(status).json({
     success: true,
-    data: data,
+    data: plainData,
     meta: {
       ...meta,
     },
@@ -30,13 +43,14 @@ const jsonAll = function <T>(
 const jsonOne = function <T>(
   res: Response,
   status: number,
-  data: T
+  data: T | Document
 ): Response<IResponse<T>> {
+  const plainData = toPlainObject<T>(data);
   return res.status(status).json({
     success: true,
-    data,
+    data: plainData,
   });
 };
 
 //EXPORT
-export { jsonAll, jsonOne };
+export { jsonAll, jsonOne, toPlainObject };
